@@ -14,6 +14,8 @@ class SearchRequest(BaseModel):
     query_text: str | None = None
     query_image_base64: str | None = None
     top_k: int = 5
+    forklift_model_id: int | None = None
+    engine_model_id: int | None = None
 
 
 class SearchHit(BaseModel):

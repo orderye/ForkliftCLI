@@ -12,10 +12,21 @@ class Model3D(Base):
     forklift_model_id = Column(Integer, ForeignKey("forklift_models.id"), nullable=True)
     name = Column(String(200), nullable=False)
     description = Column(Text, default="")
-    file_url = Column(String(500), nullable=False)  # .glb/.gltf文件
+    file_url = Column(String(500), nullable=False)  # 下载入口，由存储后端生成
     thumbnail_url = Column(String(500), default="")
     file_size_mb = Column(Float, default=0)
     format = Column(String(20), default="glb")  # glb | gltf
+
+    # 版本化与存储元数据
+    version = Column(Integer, default=1, nullable=False)
+    content_hash = Column(String(64), nullable=True)  # SHA256 十六进制
+    storage_provider = Column(String(20), nullable=True)  # local | minio | s3
+    storage_key = Column(String(255), nullable=True)  # 对象存储 key
+    mime_type = Column(String(100), nullable=True)
+    uploaded_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+
     status = Column(String(20), default="ready")  # ready | processing | error
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

@@ -1,0 +1,25 @@
+{
+  "model_name": "Forklift",
+  "version": "1.0",
+  "animations": {
+    "mast_lift": {
+      "type": "linear_position",
+      "duration": 3.0,
+      "parts": ["Mast_Inner", "Carriage_Fork", "Fork_Left", "Fork_Right"],
+      "range": {"min": 1.8, "max": 4.5}
+    },
+    "mast_tilt": {
+      "type": "rotation",
+      "axis": "x",
+      "duration": 2.0,
+      "parts": ["Mast_Outer", "Mast_Inner", "Carriage_Fork", "Fork_Left", "Fork_Right"],
+      "range": {"min": -12, "max": 6}
+    },
+    "fork_spread": {
+      "type": "lateral_position",
+      "duration": 1.5,
+      "parts": ["Fork_Left", "Fork_Right"],
+      "range": {"min": 0.3, "max": 1.2}
+    }
+  }
+}

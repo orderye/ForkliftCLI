@@ -11,6 +11,13 @@ class Model3DOut(BaseModel):
     file_size_mb: float
     format: str
     status: str
+    version: int = 1
+    content_hash: str | None = None
+    storage_provider: str | None = None
+    storage_key: str | None = None
+    mime_type: str | None = None
+    uploaded_at: str | None = None
+    updated_at: str | None = None
 
     class Config:
         from_attributes = True
@@ -70,3 +77,10 @@ class ArConfigOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class Model3DCreate(BaseModel):
+    forklift_model_id: int | None = None
+    name: str
+    description: str = ""
+    format: str = "glb"

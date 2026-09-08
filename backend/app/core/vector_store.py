@@ -2,20 +2,32 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 from app.config import get_settings
 from app.services.embedding_service import EMBED_DIM
+from app.core.memory_vector_store import ensure_collection as memory_ensure_collection, upsert_point as memory_upsert_point, search_similar as memory_search_similar
 
 settings = get_settings()
 
 COLLECTION = "forklift_multimodal"
+USE_MEMORY_STORE = settings.USE_MEMORY_STORE  # 从配置读取设置
 
 # uuid5 命名空间，保证同 prefix+db_id → 同 UUID，不同 id 不碰撞
 _NS = __import__("uuid").uuid5(__import__("uuid").NAMESPACE_URL, "forklift-bao-vector-store")
 
+# QdrantClient 单例，避免每次调用重建连接
+_qdrant_client: QdrantClient | None = None
+
 
 def get_qdrant() -> QdrantClient:
-    return QdrantClient(url=settings.QDRANT_URL)
+    global _qdrant_client
+    if _qdrant_client is None:
+        _qdrant_client = QdrantClient(url=settings.QDRANT_URL)
+    return _qdrant_client
 
 
 def ensure_collection(client: QdrantClient | None = None) -> None:
+    if USE_MEMORY_STORE:
+        memory_ensure_collection(COLLECTION)
+        return
+    
     client = client or get_qdrant()
     if not client.collection_exists(COLLECTION):
         client.create_collection(
@@ -42,6 +54,10 @@ def upsert_point(
     payload: dict,
     client: QdrantClient | None = None,
 ) -> None:
+    if USE_MEMORY_STORE:
+        memory_upsert_point(point_id, vector, payload, COLLECTION)
+        return
+    
     client = client or get_qdrant()
     ensure_collection(client)
     client.upsert(
@@ -74,6 +90,9 @@ def search_similar(
     engine_model_id: int | None = None,
     client: QdrantClient | None = None,
 ) -> list[dict]:
+    if USE_MEMORY_STORE:
+        return memory_search_similar(vector, top_k, COLLECTION, forklift_model_id, engine_model_id)
+    
     client = client or get_qdrant()
     if not client.collection_exists(COLLECTION):
         return []

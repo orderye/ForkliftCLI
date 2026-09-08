@@ -1,3 +1,6 @@
+import re
+import logging
+
 import httpx
 from sqlalchemy.orm import Session
 from app.config import get_settings
@@ -6,15 +9,26 @@ from app.models.ai import KnowledgeDocument, KnowledgeChunk, FaultTree
 from app.services.embedding_service import get_text_embedding
 from app.core.vector_store import search_similar, ensure_collection
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-def _retrieve_context(query: str, forklift_model_id: int | None = None, top_k: int = 5) -> str:
+def _retrieve_context(
+    query: str,
+    forklift_model_id: int | None = None,
+    engine_model_id: int | None = None,
+    top_k: int = 5,
+) -> str:
     """用 WeMM 向量化查询，从 Qdrant 召回相关资料片段。"""
     try:
         ensure_collection()
         vec = get_text_embedding(query)
-        hits = search_similar(vec, top_k=top_k, forklift_model_id=forklift_model_id)
+        hits = search_similar(
+            vec,
+            top_k=top_k,
+            forklift_model_id=forklift_model_id,
+            engine_model_id=engine_model_id,
+        )
         if not hits:
             return ""
         lines = []
@@ -26,13 +40,106 @@ def _retrieve_context(query: str, forklift_model_id: int | None = None, top_k: i
             lines.append(f"- {title}: {text[:300]}{' (' + url + ')' if url else ''}")
         return "\n".join(lines)
     except Exception:
+        logger.exception("WeMM vector retrieval failed (query=%s)", query[:80])
         return ""
+
+
+# ── diagnose 结果解析 ──────────────────────────────────────────
+_RE_CAUSES = re.compile(r"可能原因[:：]\s*\n?(.*?)(?=\n检查顺序|\n安全提示|$)", re.S)
+_RE_CHECKS = re.compile(r"检查顺序[:：]\s*\n?(.*?)(?=\n安全提示|$)", re.S)
+_RE_SAFETY = re.compile(r"安全提示[:：]\s*\n?(.*?)$", re.S)
+
+
+def _parse_diagnosis(llm_text: str) -> dict:
+    """尝试从 LLM 输出中提取结构化诊断字段，失败则返回原文。"""
+    causes_raw = _RE_CAUSES.search(llm_text)
+    checks_raw = _RE_CHECKS.search(llm_text)
+    safety_raw = _RE_SAFETY.search(llm_text)
+
+    def _split_list(text: str | None) -> list[str]:
+        if not text:
+            return []
+        return [line.lstrip("0123456789.-·、 ").strip() for line in text.strip().splitlines() if line.strip()]
+
+    causes = _split_list(causes_raw.group(1) if causes_raw else None)
+    checks = _split_list(checks_raw.group(1) if checks_raw else None)
+    safety = _split_list(safety_raw.group(1) if safety_raw else None)
+
+    return {
+        "possible_causes": [{"cause": c, "probability": ""} for c in causes] or [{"cause": llm_text, "probability": ""}],
+        "check_order": checks or ["请参考AI回复"],
+        "safety_warnings": safety or [
+            "维修前请先停车、熄火",
+            "释放液压压力",
+            "固定门架",
+            "请由具备相应资质的维修人员操作",
+        ],
+        "references": [llm_text],
+    }
 
 
 class AIService:
     def __init__(self, db: Session):
         self.db = db
 
+    # ── 车型信息检索 ──────────────────────────────────────────
+    def _get_model_info(self, forklift_model_id: int | None) -> str:
+        if not forklift_model_id:
+            return ""
+        model = self.db.query(ForkliftModel).filter(
+            ForkliftModel.id == forklift_model_id
+        ).first()
+        if not model:
+            return ""
+        info = f"\n当前叉车车型: {model.series.brand.name} {model.name}"
+        if model.load_capacity_kg:
+            info += f"，额定载荷: {model.load_capacity_kg}kg"
+        if model.fuel_type:
+            info += f"，燃料类型: {model.fuel_type}"
+        return info
+
+    # ── 知识库分片检索 ────────────────────────────────────────
+    def _get_knowledge_chunks(
+        self,
+        forklift_model_id: int | None = None,
+        engine_model_id: int | None = None,
+        limit: int = 5,
+    ) -> str:
+        q = self.db.query(KnowledgeChunk).join(KnowledgeDocument)
+        if forklift_model_id:
+            q = q.filter(KnowledgeDocument.forklift_model_id == forklift_model_id)
+        if engine_model_id:
+            q = q.filter(KnowledgeDocument.engine_model_id == engine_model_id)
+        chunks = q.limit(limit).all()
+        if not chunks:
+            return ""
+        return "\n\n相关维修资料:\n" + "".join(f"- {c.chunk_text[:500]}\n" for c in chunks)
+
+    # ── 故障树检索 ────────────────────────────────────────────
+    def _get_fault_trees(
+        self,
+        forklift_model_id: int | None = None,
+        engine_model_id: int | None = None,
+        limit: int = 5,
+    ) -> str:
+        q = self.db.query(FaultTree)
+        if forklift_model_id:
+            q = q.filter(FaultTree.forklift_model_id == forklift_model_id)
+        if engine_model_id:
+            q = q.filter(FaultTree.engine_model_id == engine_model_id)
+        trees = q.limit(limit).all()
+        if not trees:
+            return ""
+        lines = ["\n\n已知故障信息:"]
+        for t in trees:
+            lines.append(f"- 症状: {t.symptom}")
+            if t.causes_json:
+                lines.append(f"  原因: {t.causes_json}")
+            if t.solutions_json:
+                lines.append(f"  解决方案: {t.solutions_json}")
+        return "\n".join(lines)
+
+    # ── system prompt 构建 ────────────────────────────────────
     def _build_system_prompt(
         self,
         query: str,
@@ -45,52 +152,17 @@ class AIService:
             "涉及安全操作时，必须给出安全提示。\n"
             "不要编造不确定的维修参数，如果知识库中没有相关信息，请诚实告知。\n"
         )
+        prompt += self._get_model_info(forklift_model_id)
+        prompt += self._get_knowledge_chunks(forklift_model_id, engine_model_id)
+        prompt += self._get_fault_trees(forklift_model_id, engine_model_id)
 
-        if forklift_model_id:
-            model = self.db.query(ForkliftModel).filter(
-                ForkliftModel.id == forklift_model_id
-            ).first()
-            if model:
-                prompt += f"\n当前叉车车型: {model.series.brand.name} {model.name}"
-                if model.load_capacity_kg:
-                    prompt += f"，额定载荷: {model.load_capacity_kg}kg"
-                if model.fuel_type:
-                    prompt += f"，燃料类型: {model.fuel_type}"
-
-        # 检索相关知识库文档
-        if forklift_model_id:
-            chunks = (
-                self.db.query(KnowledgeChunk)
-                .join(KnowledgeDocument)
-                .filter(KnowledgeDocument.forklift_model_id == forklift_model_id)
-                .limit(5)
-                .all()
-            )
-            if chunks:
-                prompt += "\n\n相关维修资料:\n"
-                for chunk in chunks:
-                    prompt += f"- {chunk.chunk_text[:500]}\n"
-
-        # 检索故障树
-        if forklift_model_id:
-            trees = (
-                self.db.query(FaultTree)
-                .filter(FaultTree.forklift_model_id == forklift_model_id)
-                .limit(3)
-                .all()
-            )
-            if trees:
-                prompt += "\n\n已知故障信息:\n"
-                for tree in trees:
-                    prompt += f"- 症状: {tree.symptom}\n"
-
-        # 向量召回：WeMM + Qdrant
-        ctx = _retrieve_context(query, forklift_model_id)
+        ctx = _retrieve_context(query, forklift_model_id, engine_model_id)
         if ctx:
             prompt += "\n\n检索到的相关资料:\n" + ctx
 
         return prompt
 
+    # ── 对话 ──────────────────────────────────────────────────
     def chat(
         self,
         message: str,
@@ -103,13 +175,17 @@ class AIService:
         messages = [{"role": "system", "content": system_prompt}]
         if history:
             for h in history:
-                messages.append({"role": h.role, "content": h.content})
+                if isinstance(h, dict):
+                    messages.append({"role": h["role"], "content": h["content"]})
+                else:
+                    messages.append({"role": h.role, "content": h.content})
         messages.append({"role": "user", "content": message})
 
         try:
             reply = self._call_llm(messages)
         except Exception as e:
-            reply = f"AI服务暂时不可用，请稍后重试。错误信息: {str(e)}"
+            logger.exception("AI chat LLM call failed")
+            reply = f"AI服务暂时不可用，请稍后重试。错误信息: {e}"
 
         return {
             "reply": reply,
@@ -121,6 +197,7 @@ class AIService:
             ],
         }
 
+    # ── 故障诊断 ──────────────────────────────────────────────
     def diagnose(
         self,
         symptom: str,
@@ -135,21 +212,10 @@ class AIService:
             "安全提示: [维修前必须注意的安全事项]\n"
         )
 
-        # 检索故障树
-        if forklift_model_id:
-            trees = (
-                self.db.query(FaultTree)
-                .filter(FaultTree.forklift_model_id == forklift_model_id)
-                .all()
-            )
-            for tree in trees:
-                system_prompt += f"\n已知故障: {tree.symptom}"
-                if tree.causes_json:
-                    system_prompt += f"\n原因: {tree.causes_json}"
-                if tree.solutions_json:
-                    system_prompt += f"\n解决方案: {tree.solutions_json}"
+        system_prompt += self._get_knowledge_chunks(forklift_model_id, engine_model_id)
+        system_prompt += self._get_fault_trees(forklift_model_id, engine_model_id)
 
-        ctx = _retrieve_context(symptom, forklift_model_id)
+        ctx = _retrieve_context(symptom, forklift_model_id, engine_model_id)
         if ctx:
             system_prompt += "\n\n检索到的相关资料:\n" + ctx
 
@@ -161,25 +227,17 @@ class AIService:
         try:
             reply = self._call_llm(messages)
         except Exception as e:
-            reply = f"诊断服务暂时不可用: {str(e)}"
+            logger.exception("AI diagnose LLM call failed")
+            reply = f"诊断服务暂时不可用: {e}"
 
-        return {
-            "possible_causes": [
-                {"cause": "请参考AI回复获取详细诊断结果", "probability": "参见回复"}
-            ],
-            "check_order": ["请参考AI回复获取检查步骤"],
-            "safety_warnings": [
-                "维修前请先停车、熄火",
-                "释放液压压力",
-                "固定门架",
-                "请由具备相应资质的维修人员操作",
-            ],
-            "references": [reply],
-        }
+        return _parse_diagnosis(reply)
 
+    # ── LLM 调用 ──────────────────────────────────────────────
     def _call_llm(self, messages: list) -> str:
         if not settings.AI_API_KEY:
             return "AI服务未配置，请在 .env 文件中设置 AI_API_KEY"
+        if not settings.AI_BASE_URL:
+            return "AI服务未配置，请在 .env 文件中设置 AI_BASE_URL"
 
         with httpx.Client(timeout=60) as client:
             response = client.post(

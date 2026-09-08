@@ -1,4 +1,4 @@
-# Python
+# ── Python ──
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -8,27 +8,25 @@ build/
 venv/
 .venv/
 
-# Environment
+# ── Environment / Secrets ──
 .env
 .env.local
 
-# Database
+# ── Database ──
 *.db
 
-# IDE
+# ── IDE / Editor ──
 .vscode/
 .idea/
 *.swp
 *.swo
+.zcode/
 
-# OS
+# ── OS ──
 .DS_Store
 Thumbs.db
 
-# Uploads
-backend/uploads/
-
-# Flutter
+# ── Flutter ──
 mobile/.dart_tool/
 mobile/.packages
 mobile/build/
@@ -36,23 +34,30 @@ mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
 mobile/pubspec.lock
 
-# Node
-node_modules/
-
-# Android
+# ── Android / iOS ──
 mobile/android/.gradle/
 mobile/android/app/build/
 mobile/android/local.properties
-
-# iOS
 mobile/ios/Pods/
 mobile/ios/.symlinks/
 
-# Security scan internal state
+# ── Uploads ──
+backend/uploads/
+
+# ── Node ──
+node_modules/
+
+# ── Security scan ──
 .mimosa/
 
-# Qdrant marker
+# ── Qdrant ──
 .qdrant-initialized
 
-# Snapshots / temp
+# ── 大型资源目录（不纳入版本管理） ──
+Glb/
+GlbTest/
+BookTool/
+troublecode/
+
+# ── 临时文件 ──
 snapshots/tmp/

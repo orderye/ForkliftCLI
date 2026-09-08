@@ -53,5 +53,10 @@ def search(
     else:
         raise HTTPException(status_code=400, detail="query_text or query_image_base64 required")
 
-    hits = search_similar(vec, top_k=req.top_k)
+    hits = search_similar(
+        vec,
+        top_k=req.top_k,
+        forklift_model_id=req.forklift_model_id,
+        engine_model_id=req.engine_model_id,
+    )
     return SearchResponse(hits=hits)

@@ -32,9 +32,18 @@ class Settings(BaseSettings):
     QDRANT_URL: str = "http://localhost:6333"
     WEMM_MODEL_NAME: str = "tencent/WeMM-Embedding-2B"
     WEMM_EMBED_DIM: int = 1024
+    USE_MEMORY_STORE: bool = False
 
-    # File Storage
+    # File Storage & 3D Assets
+    STORAGE_PROVIDER: str = "local"  # local | minio | s3
     UPLOAD_DIR: str = "uploads"
+    STORAGE_BUCKET: str = "forklift-models"
+    STORAGE_ENDPOINT: str = "http://localhost:9000"
+    STORAGE_ACCESS_KEY: str = ""
+    STORAGE_SECRET_KEY: str = ""
+    STORAGE_REGION: str = "us-east-1"
+    STORAGE_SECURE: bool = False
+    STORAGE_PUBLIC_BASE_URL: str = ""  # CDN or bucket public URL, e.g. http://localhost:8000/static/uploads
 
     class Config:
         env_file = ".env"

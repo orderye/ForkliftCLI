@@ -17,8 +17,17 @@ class UnityViewWrapper extends StatefulWidget {
   /// 车型 ID（用于加载 3D 模型与 AR 配置）。
   final int? forkliftModelId;
 
-  /// 3D 模型 URL（.glb）。
+  /// 3D 模型 URL（.glb/.gltf）。
   final String? modelUrl;
+
+  /// 模型当前版本号（后端返回）。用于 Unity 本地缓存 key。
+  final int modelVersion;
+
+  /// 模型内容 SHA256（后端返回）。用于缓存校验与失效。
+  final String? contentHash;
+
+  /// 模型格式（glb | gltf）。
+  final String format;
 
   /// AR 模式开关。
   final bool enableAR;
@@ -45,6 +54,9 @@ class UnityViewWrapper extends StatefulWidget {
     super.key,
     this.forkliftModelId,
     this.modelUrl,
+    this.modelVersion = 1,
+    this.contentHash,
+    this.format = 'glb',
     this.enableAR = false,
     this.arConfig,
     this.onARConfig,
@@ -86,7 +98,13 @@ class _UnityViewWrapperState extends State<UnityViewWrapper> {
       _ready = false;
       _error = null;
     });
-    _bridge.loadModel(widget.modelUrl!, widget.forkliftModelId!);
+    _bridge.loadModel(
+      widget.modelUrl!,
+      widget.forkliftModelId!,
+      version: widget.modelVersion,
+      contentHash: widget.contentHash,
+      format: widget.format,
+    );
   }
 
   Future<void> _enterAR() async {

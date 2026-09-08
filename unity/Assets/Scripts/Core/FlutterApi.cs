@@ -5,6 +5,9 @@ namespace ForkliftBao.Core
     {
         public string url;
         public int modelId;
+        public int version = 1;
+        public string contentHash;
+        public string format = "glb";
     }
 
     [System.Serializable]

@@ -61,8 +61,21 @@ class UnityBridge {
   // ─────────────────────────── Flutter → Unity ───────────────────────────
 
   /// 加载 3D 模型（.glb URL）。
-  Future<void> loadModel(String url, int modelId) async =>
-      _post('loadModel', {'url': url, 'modelId': modelId});
+  /// [version] 与 [contentHash] 可选：用于客户端本地缓存校验与版本失效。
+  Future<void> loadModel(
+    String url,
+    int modelId, {
+    int version = 1,
+    String? contentHash,
+    String? format,
+  }) async =>
+      _post('loadModel', {
+        'url': url,
+        'modelId': modelId,
+        'version': version,
+        if (contentHash != null) 'contentHash': contentHash,
+        if (format != null) 'format': format,
+      });
 
   /// 播放动画片段（mast_up / tilt_forward / fork_up ...）。
   Future<void> playAnimation(String name, {double speed = 1.0}) async =>

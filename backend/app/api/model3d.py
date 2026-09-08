@@ -1,14 +1,33 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.error_handler import safe_api
 from app.core.security import get_current_user
+from app.core.storage import get_storage_client
 from app.models.user import User
 from app.models.model3d import Model3D, Model3DPart, Model3DAnimation, ArModelConfig
 from app.schemas.model3d import Model3DOut, Model3DPartOut, Model3DAnimationOut, ArConfigOut
+from app.schemas.model3d import Model3DCreate
+from datetime import datetime, timezone
 import os
 
 router = APIRouter(prefix="/3d", tags=["3D模型"])
+
+def _mime_of_format(fmt: str) -> str:
+    """返回 .glb / .gltf 对应的 Content-Type。"""
+    f = (fmt or "glb").lower()
+    if f == "gltf":
+        return "model/gltf+json"
+    return "model/gltf-binary"
+
+def _serialize_datetime(dt) -> str | None:
+    if dt is None:
+        return None
+    if isinstance(dt, datetime):
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return str(dt)
 
 
 @router.get("/models", response_model=list[Model3DOut])
@@ -109,3 +128,133 @@ def list_ar_models(db: Session = Depends(get_db), _: User = Depends(get_current_
                 "model_3d": Model3DOut.model_validate(model_3d),
             })
     return result
+
+
+@router.post("/upload", response_model=Model3DOut)
+@safe_api
+async def upload_3d_model(
+    file: UploadFile = File(...),
+    forklift_model_id: int | None = None,
+    name: str = Form(...),
+    description: str = "",
+    format: str = Form("glb"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    上传 3D 模型到对象存储，返回模型元数据（含 version、content_hash）。
+    - 若已有相同 forklift_model_id 的模型，自动递增版本；
+    - 若内容哈希完全一致，可跳过存储（按需）；
+    """
+    allowed_formats = ("glb", "gltf")
+    if format.lower() not in allowed_formats:
+        raise HTTPException(400, f"不支持格式 {format}，仅接受 glb / gltf")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "文件为空")
+
+    storage = get_storage_client()
+    content_hash = storage.compute_hash(data)
+    mime = _mime_of_format(format)
+
+    # 生成 storage key：models/{forklift_model_id}/{hash}.{ext}
+    key_base = f"models/{forklift_model_id or 'general'}"
+    file_key = f"{key_base}/{content_hash[:16]}.{format.lower()}"
+
+    # 存储到对象存储（本地目录或 MinIO/S3）
+    file_url = storage.put_object(file_key, data, content_type=mime)
+
+    # 确定版本号
+    existing = (
+        db.query(Model3D)
+        .filter(Model3D.forklift_model_id == forklift_model_id)
+        .order_by(Model3D.version.desc())
+        .first()
+    )
+    version = 1
+    if existing:
+        # 若内容哈希相同则视为同一版本；否则递增
+        if existing.content_hash == content_hash:
+            # 无实质变化，更新 updated_at 后返回现有记录
+            existing.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(existing)
+            out = Model3DOut.model_validate(existing)
+            out.uploaded_at = _serialize_datetime(existing.uploaded_at)
+            out.updated_at = _serialize_datetime(existing.updated_at)
+            return out
+        version = (existing.version or 0) + 1
+
+    file_size_mb = round(len(data) / (1024 * 1024), 3)
+
+    model = Model3D(
+        forklift_model_id=forklift_model_id,
+        name=name,
+        description=description,
+        file_url=file_url,
+        file_size_mb=file_size_mb,
+        format=format.lower(),
+        version=version,
+        content_hash=content_hash,
+        storage_provider=storage.provider,
+        storage_key=file_key,
+        mime_type=mime,
+        uploaded_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    db.add(model)
+    db.commit()
+    db.refresh(model)
+
+    out = Model3DOut.model_validate(model)
+    out.uploaded_at = _serialize_datetime(model.uploaded_at)
+    out.updated_at = _serialize_datetime(model.updated_at)
+    return out
+
+
+@router.post("/{model_id}/release", response_model=Model3DOut)
+@safe_api
+async def release_3d_model(
+    model_id: int,
+    file: UploadFile = File(...),
+    format: str = Form("glb"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    为已有模型发布新版本（强制递增版本号）。
+    """
+    model = db.query(Model3D).filter(Model3D.id == model_id).first()
+    if not model:
+        raise HTTPException(404, "模型不存在")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "文件为空")
+
+    storage = get_storage_client()
+    content_hash = storage.compute_hash(data)
+    mime = _mime_of_format(format)
+    new_version = (model.version or 0) + 1
+    key_base = f"models/{model.forklift_model_id or 'general'}"
+    file_key = f"{key_base}/{content_hash[:16]}.{format.lower()}"
+    file_url = storage.put_object(file_key, data, content_type=mime)
+
+    model.file_url = file_url
+    model.file_size_mb = round(len(data) / (1024 * 1024), 3)
+    model.format = format.lower()
+    model.version = new_version
+    model.content_hash = content_hash
+    model.storage_provider = storage.provider
+    model.storage_key = file_key
+    model.mime_type = mime
+    model.uploaded_at = datetime.now(timezone.utc)
+    model.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(model)
+
+    out = Model3DOut.model_validate(model)
+    out.uploaded_at = _serialize_datetime(model.uploaded_at)
+    out.updated_at = _serialize_datetime(model.updated_at)
+    return out

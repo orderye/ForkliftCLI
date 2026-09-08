@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.core.database import engine, Base
 from app.api.auth import router as auth_router
@@ -18,6 +19,14 @@ app = FastAPI(
     version=settings.APP_VERSION,
     description="ForkliftCLI — 智能叉车维修辅助系统 API",
 )
+
+# 本地存储模式：将 uploads 目录挂载为静态资源访问入口。
+if settings.STORAGE_PROVIDER.lower() == "local":
+    import os
+
+    uploads_dir = os.path.abspath(settings.UPLOAD_DIR)
+    if os.path.isdir(uploads_dir):
+        app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 # CORS
 app.add_middleware(

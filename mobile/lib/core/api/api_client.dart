@@ -175,11 +175,19 @@ class ApiClient {
   }
 
   // ========== 多模态向量搜索 ==========
-  Future<List<dynamic>> searchEmbed(String? queryText, {String? queryImageBase64, int topK = 5}) async {
+  Future<List<dynamic>> searchEmbed(
+    String? queryText, {
+    String? queryImageBase64,
+    int topK = 5,
+    int? forkliftModelId,
+    int? engineModelId,
+  }) async {
     final response = await _dio.post('/api/v1/embed/search', data: {
       if (queryText != null) 'query_text': queryText,
       if (queryImageBase64 != null) 'query_image_base64': queryImageBase64,
       'top_k': topK,
+      if (forkliftModelId != null) 'forklift_model_id': forkliftModelId,
+      if (engineModelId != null) 'engine_model_id': engineModelId,
     });
     return response.data['hits'];
   }
