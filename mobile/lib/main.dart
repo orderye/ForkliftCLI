@@ -16,7 +16,7 @@ class ForkliftBaoApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: '叉车宝',
+      title: 'ForkliftCLI',
       theme: AppTheme.lightTheme,
       routerConfig: router,
       debugShowCheckedModeBanner: false,

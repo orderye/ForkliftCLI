@@ -1,4 +1,4 @@
-# 叉车宝 — MVP开发计划
+# ForkliftCLI — MVP开发计划
 
 ## 一、技术架构
 
@@ -13,7 +13,7 @@ PostgreSQL + Redis + 本地文件存储
 ## 二、项目目录结构
 
 ```
-叉车宝/
+ForkliftCLI/
 ├── mobile/                    # Flutter 移动端
 │   ├── lib/
 │   │   ├── app/               # 路由、主题

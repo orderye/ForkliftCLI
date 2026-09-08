@@ -1,4 +1,4 @@
-# 叉车宝 ForkliftCLI
+# ForkliftCLI ForkliftCLI
 
 智能叉车维修辅助系统 — 快速识别车型、查询配件、AI 故障诊断、3D/AR 模型查看。
 

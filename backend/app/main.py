@@ -16,7 +16,7 @@ settings = get_settings()
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="叉车宝 — 智能叉车维修辅助系统 API",
+    description="ForkliftCLI — 智能叉车维修辅助系统 API",
 )
 
 # CORS

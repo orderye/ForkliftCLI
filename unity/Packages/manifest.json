@@ -1,6 +1,6 @@
 {
   "name": "ForkliftBao3D",
-  "displayName": "叉车宝 3D",
+  "displayName": "ForkliftCLI 3D",
   "version": "0.1.0",
   "unity": "2022.3",
   "dependencies": {

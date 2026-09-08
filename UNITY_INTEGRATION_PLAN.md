@@ -1,4 +1,4 @@
-# 叉车宝 — Unity + AR Foundation 集成方案
+# ForkliftCLI — Unity + AR Foundation 集成方案
 
 **目标：** 用 Unity 替代 model_viewer_plus，实现 3D 机械动画、零件交互、AR 真实尺寸、AR 维修指导  
 **前置条件：** Phase 1 完成（Flutter 壳 + FastAPI 后端已就绪）  
@@ -64,7 +64,7 @@
 ```
 Unity Hub → New Project → 3D (URP)
 项目名: ForkliftBao3D
-路径: /Volumes/aigo S7 Med/叉车宝/unity/
+路径: /Volumes/aigo S7 Med/ForkliftCLI/unity/
 ```
 
 #### 1.2 安装必要 Package

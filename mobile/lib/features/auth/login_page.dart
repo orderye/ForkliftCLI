@@ -71,7 +71,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    '叉车宝',
+                    'ForkliftCLI',
                     style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),

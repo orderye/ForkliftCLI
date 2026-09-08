@@ -1,5 +1,5 @@
 name: forklift_bao
-description: 叉车宝 — 智能叉车维修辅助工具
+description: ForkliftCLI — 智能叉车维修辅助工具
 publish_to: 'none'
 version: 1.0.0+1
 

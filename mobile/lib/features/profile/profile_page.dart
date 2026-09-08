@@ -32,7 +32,7 @@ class ProfilePage extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('叉车宝用户', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text('ForkliftCLI用户', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                     SizedBox(height: 4),
                     Text('专业版', style: TextStyle(color: Colors.white70)),
                   ],

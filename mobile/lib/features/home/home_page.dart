@@ -8,7 +8,7 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('叉车宝'),
+        title: const Text('ForkliftCLI'),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
