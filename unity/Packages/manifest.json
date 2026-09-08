@@ -1,0 +1,18 @@
+{
+  "name": "ForkliftBao3D",
+  "displayName": "叉车宝 3D",
+  "version": "0.1.0",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.unity.render-pipelines.universal": "14.0.0",
+    "com.unity.inputsystem": "1.5.3",
+    "com.unity.textmeshpro": "3.0.6",
+    "com.unity.xr.arfoundation": "5.1.0",
+    "com.unity.xr.arcore": "5.1.0",
+    "com.unity.xr.arkit": "5.1.0",
+    "com.unity.xr.management": "4.4.0",
+    "com.unity.xr.core": "10.0.1"
+  },
+  "testables": [],
+  "useAllDependencies": false
+}
