@@ -18,12 +18,15 @@ class UnityBridge {
 
   /// Unity 侧事件名常量。
   static const kOnModelLoaded = 'onModelLoaded';
+  static const kOnModelCleared = 'onModelCleared';
   static const kOnAnimationComplete = 'onAnimationComplete';
   static const kOnPartClicked = 'onPartClicked';
   static const kOnARPlaneDetected = 'onARPlaneDetected';
   static const kOnARSessionReady = 'onARSessionReady';
   static const kOnARPlaced = 'onARPlaced';
   static const kOnMastHeightChanged = 'onMastHeightChanged';
+  static const kOnARGuideStep = 'onARGuideStep';
+  static const kOnARGuideEnded = 'onARGuideEnded';
   static const kOnError = 'onError';
 
   UnityWidgetController? _controller;
@@ -108,12 +111,36 @@ class UnityBridge {
   Future<void> setARScale(double factor) async =>
       _post('setARScale', {'factor': factor});
 
-  /// 显示/隐藏 AR 尺寸标注。
+  /// 显示 AR 尺寸标注。
   Future<void> showARDimensions(bool show) async =>
       _post('showARDimensions', {'show': show});
 
+  /// 隐藏 AR 尺寸标注。
+  Future<void> hideARDimensions() async => _post('hideARDimensions', {});
+
+  /// 重新放置 AR 模型（回到"等待平面检测"状态）。
+  Future<void> repositionAR() async => _post('repositionAR', {});
+
   /// 重置 3D 相机视角。
   Future<void> resetView() async => _post('resetView', {});
+
+  /// 手动设置相机视角（yaw/pitch 单位：度）。
+  Future<void> setView({
+    required double yaw,
+    required double pitch,
+    double? distance,
+  }) async =>
+      _post('setView', {'yaw': yaw, 'pitch': pitch, if (distance != null) 'distance': distance});
+
+  /// 清除已加载模型。
+  Future<void> clearModel() async => _post('clearModel', {});
+
+  /// AR 维修指导：显示某一步骤与箭头锚点。
+  Future<void> beginARGuide(String step, {Map<String, double>? anchor}) async =>
+      _post('beginARGuide', {'step': step, if (anchor != null) 'anchor': anchor});
+
+  /// 结束 AR 维修指导。
+  Future<void> endARGuide() async => _post('endARGuide', {});
 
   Future<void> _post(String method, Map<String, dynamic> data) async {
     if (_controller == null) {

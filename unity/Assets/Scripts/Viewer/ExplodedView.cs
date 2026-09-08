@@ -28,6 +28,8 @@ namespace ForkliftBao.Viewer
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+
+            Core.UnityMessageManager.Register("setExploded", SetProgress);
         }
 
         void Start()
@@ -54,6 +56,8 @@ namespace ForkliftBao.Viewer
         public void SetProgress(string jsonData)
         {
             var p = JsonUtility.FromJson<Core.ExplodedParam>(jsonData);
+            if (p == null) return;
+            if (parts.Count == 0) AutoCollectParts();
             _currentProgress = Mathf.Clamp01(p.progress);
             foreach (var entry in parts)
             {

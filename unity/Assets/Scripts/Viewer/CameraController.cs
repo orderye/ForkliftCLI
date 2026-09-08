@@ -28,6 +28,9 @@ namespace ForkliftBao.Viewer
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+
+            Core.UnityMessageManager.Register("resetView", ResetView);
+            Core.UnityMessageManager.Register("setView", SetView);
         }
 
         void Start()
@@ -55,6 +58,21 @@ namespace ForkliftBao.Viewer
                     pitch -= touch.deltaPosition.y * rotateSpeed;
                     pitch = Mathf.Clamp(pitch, -80f, 80f);
                 }
+                else if (touch.phase == TouchPhase.Ended)
+                {
+                    // 单指抬起算一次点击：若点在模型上则回传零件 ID，让 Flutter 能联动零件列表。
+                    Ray ray = Camera.main.ScreenPointToRay(touch.position);
+                    if (Physics.Raycast(ray, out RaycastHit hit))
+                    {
+                        var meshRenderer = hit.collider.GetComponentInParent<MeshRenderer>();
+                        if (meshRenderer != null)
+                        {
+                            string partName = meshRenderer.gameObject.name;
+                            Core.UnityMessageManager.Instance?.SendToFlutter("onPartClicked",
+                                $"{{\"partName\":\"{Escape(partName)}\",\"partId\":{partName.GetHashCode()}}}");
+                        }
+                    }
+                }
             }
             else if (Input.touchCount == 2)
             {
@@ -66,6 +84,9 @@ namespace ForkliftBao.Viewer
                 distance = Mathf.Clamp(distance, minDistance, maxDistance);
             }
         }
+
+        private static string Escape(string s) =>
+            s?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? "";
 
         void ApplyTransform()
         {
@@ -84,6 +105,25 @@ namespace ForkliftBao.Viewer
         public void ResetView(string _)
         {
             ResetView();
+        }
+
+        /// <summary>手动设置视角：{"yaw":45,"pitch":25,"distance":4}</summary>
+        public void SetView(string jsonData)
+        {
+            if (string.IsNullOrEmpty(jsonData)) return;
+            var p = JsonUtility.FromJson<ViewParam>(jsonData);
+            if (p == null) return;
+            if (!float.IsNaN(p.yaw)) yaw = p.yaw;
+            if (!float.IsNaN(p.pitch)) pitch = Mathf.Clamp(p.pitch, -80f, 80f);
+            if (p.distance > 0) distance = Mathf.Clamp(p.distance, minDistance, maxDistance);
+        }
+
+        [System.Serializable]
+        private class ViewParam
+        {
+            public float yaw;
+            public float pitch;
+            public float distance;
         }
     }
 }

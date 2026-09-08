@@ -21,23 +21,53 @@ namespace ForkliftBao.Viewer
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+
+            Core.UnityMessageManager.Register("highlightPart", Highlight);
+            Core.UnityMessageManager.Register("clearHighlight", Clear);
+            Core.UnityMessageManager.Register("setTransparent", SetTransparent);
         }
 
         public void RegisterPart(int partId, GameObject partObj)
         {
+            if (partObj == null) return;
             var renderers = partObj.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0) return;
             _partRenderers[partId] = renderers;
             foreach (var r in renderers)
                 if (!_originalMats.ContainsKey(r))
                     _originalMats[r] = r.sharedMaterials;
         }
 
+        /// <summary>
+        /// 按名字批量注册：模型导入后由场景配置给出「partId → 子物体名」映射，
+        /// 避免每个零件都要手工拖引用。
+        /// </summary>
+        public void RegisterPartByPath(int partId, string path)
+        {
+            if (string.IsNullOrEmpty(path)) return;
+            RegisterPart(partId, transform.Find(path)?.gameObject);
+        }
+
+        /// <summary>扫描 modelContainer 下所有子物体，用层级路径注册。</summary>
+        public void RegisterAllUnder(Transform root)
+        {
+            if (root == null) return;
+            foreach (var child in root.GetComponentsInChildren<Transform>())
+            {
+                if (child == root) continue;
+                RegisterPart(hashPath(child.GetTransformPath(root)), child.gameObject);
+            }
+        }
+
+        private static int hashPath(string path) => path.GetHashCode();
+
         public void Highlight(string jsonData)
         {
             var p = JsonUtility.FromJson<Core.HighlightParam>(jsonData);
+            if (p == null) return;
             if (!_partRenderers.TryGetValue(p.partId, out var renderers))
             {
-                Debug.LogWarning($"[PartHighlighter] 未注册 partId={p.partId}");
+                Debug.LogWarning($"[PartHighlighter] 未注册 partId={p.partId}，已注册 {_partRenderers.Count} 个");
                 return;
             }
 
@@ -73,6 +103,7 @@ namespace ForkliftBao.Viewer
         public void SetTransparent(string jsonData)
         {
             var p = JsonUtility.FromJson<Core.TransparentParam>(jsonData);
+            if (p == null) return;
             foreach (var kvp in _partRenderers)
             {
                 foreach (var r in kvp.Value)

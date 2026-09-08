@@ -62,12 +62,20 @@ namespace ForkliftBao.Core
     [System.Serializable]
     public class ArConfigData
     {
+        // 字段名保持 snake_case：Unity JsonUtility 按成员名逐字匹配，
+        // 后端 ArModelConfig 返回的就是这些键，改驼峰会导致全部解析为 0。
         public float real_length_mm;
         public float real_width_mm;
         public float real_height_mm;
         public float real_mast_height_mm;
         public float real_wheelbase_mm;
         public float real_turning_radius_mm;
+        public float scale_factor = 1f;
+        public bool occlusion = true;
+        public bool lighting = true;
+        public bool shadow = true;
+
+        public float ScaleFactor => scale_factor != 0f ? scale_factor : 1f;
     }
 
     [System.Serializable]
