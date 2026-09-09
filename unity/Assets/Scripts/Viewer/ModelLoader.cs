@@ -1,7 +1,8 @@
 using System;
-using System.IO;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 #if FORKLIFT_GLTFAST
@@ -14,9 +15,11 @@ namespace ForkliftBao.Viewer
     /// 从 URL 加载 .glb/.gltf 模型到 modelContainer。
     ///
     /// 依赖 com.unity.cloud.gltfast 包（见 Packages/manifest.json）。
-    /// 装上后编译时定义 FORKLIFT_GLTFAST，走真正的异步解析导入；
-    /// 未安装时降级为「下载并缓存到 StreamingAssets/models/」，
-    /// 保证桥接链路可跑通、错误可回传，而不是静默假装成功。
+    /// ForkliftBao.asmdef 的 versionDefines 会在包装上时自动定义 FORKLIFT_GLTFAST，
+    /// 走真正的异步解析导入；未安装时降级为「下载并缓存到本地」，保证桥接链路可跑通、
+    /// 错误可回传，而不是静默假装成功。
+    ///
+    /// 缓存策略：modelId + version + contentHash 命中本地文件则跳过下载。
     /// </summary>
     public class ModelLoader : MonoBehaviour
     {
@@ -25,15 +28,10 @@ namespace ForkliftBao.Viewer
         [Header("Target")]
         public Transform modelContainer;
 
-[Header("Cache")]
-        [Tooltip("下载到 StreamingAssets 之外时改用 persistentDataPath，避免打包后只读。")]
-        public bool cacheInPersistentData = true;
-
         [Header("Timeout")]
         public float downloadTimeoutSeconds = 60f;
 
         private int currentModelId;
-        private string currentModelName = "";
         private GameObject loadedRoot;
         private bool _loading;
 
@@ -77,8 +75,7 @@ namespace ForkliftBao.Viewer
             }
 
             currentModelId = param.modelId;
-            currentModelName = param.url;
-            _currentVersion = param.version;
+            _currentVersion = param.version > 0 ? param.version : 1;
             _currentHash = param.contentHash ?? "";
             _currentFormat = string.IsNullOrEmpty(param.format) ? "glb" : param.format.ToLowerInvariant();
 
@@ -92,6 +89,8 @@ namespace ForkliftBao.Viewer
 
         public void ClearModel(string _)
         {
+            StopAllCoroutines();
+            _loading = false;
             DestroyLoadedModel();
             SendEvent("onModelCleared", "{}");
         }
@@ -104,102 +103,176 @@ namespace ForkliftBao.Viewer
             string cachedPath = ResolveCachePath();
             if (!string.IsNullOrEmpty(cachedPath) && File.Exists(cachedPath))
             {
-                byte[] cached = File.ReadAllBytes(cachedPath);
-                Debug.Log($"[ModelLoader] 缓存命中 {cachedPath} ({cached.Length} bytes)");
-                if (TryImport(cached, cachedPath))
+                byte[] cached = null;
+                try { cached = File.ReadAllBytes(cachedPath); }
+                catch (Exception e) { Debug.LogWarning($"[ModelLoader] 读缓存失败: {e.Message}"); }
+
+                if (cached != null && cached.Length > 0)
+                {
+                    Debug.Log($"[ModelLoader] 缓存命中 {cachedPath} ({cached.Length} bytes)");
+                    bool fromCacheOk = false;
+                    yield return ImportRoutine(cached, v => fromCacheOk = v);
+                    if (fromCacheOk)
+                    {
+                        _loading = false;
+                        SendEvent("onModelLoaded",
+                            $"{{\"success\":true,\"modelId\":{currentModelId},\"bytes\":{cached.Length}," +
+                            $"\"rendererCount\":{renderersCount(loadedRoot)},\"fromCache\":true}}");
+                        yield break;
+                    }
+                    // 缓存损坏则继续下载。
+                    Debug.LogWarning("[ModelLoader] 缓存解析失败，重新下载");
+                }
+            }
+
+            using (var request = UnityWebRequest.Get(url))
+            {
+                request.timeout = Mathf.Max(1, (int)downloadTimeoutSeconds);
+                var op = request.SendWebRequest();
+                while (!op.isDone) yield return null;
+
+                bool failed;
+#if UNITY_2020_1_OR_NEWER
+                failed = request.result != UnityWebRequest.Result.Success;
+#else
+                failed = request.isNetworkError || request.isHttpError;
+#endif
+                if (failed)
                 {
                     _loading = false;
-                    SendEvent("onModelLoaded",
-                        $"{{\"success\":true,\"modelId\":{currentModelId},\"bytes\":{cached.Length}," +
-                        $"\"rendererCount\":{renderersCount(loadedRoot)},\"fromCache\":true}}");
+                    string detail = $"HTTP {request.responseCode}: {request.error}";
+                    Debug.LogError($"[ModelLoader] 下载失败 {url} -> {detail}");
+                    SendError(detail, "loadModel");
                     yield break;
                 }
-                // 缓存损坏则继续下载。
-                Debug.LogWarning("[ModelLoader] 缓存解析失败，重新下载");
-            }
 
-            UnityWebRequest request = UnityWebRequestAssetBundle.GetAssetBundle(url);
-            request.timeout = Mathf.Max(1, (int)downloadTimeoutSeconds);
+                byte[] data = request.downloadHandler.data;
 
-            yield return request.SendWebRequest();
+                // 写入本地缓存（按 modelId + version + hash 命名，便于版本失效与清理）。
+                if (!string.IsNullOrEmpty(cachedPath) && data != null && data.Length > 0)
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(CacheDir);
+                        File.WriteAllBytes(cachedPath, data);
+                        UpdateCacheIndex(currentModelId, _currentVersion, _currentHash, cachedPath);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogWarning($"[ModelLoader] 写缓存失败: {e.Message}");
+                    }
+                }
 
-            bool failed = false;
-#if UNITY_2020_1_OR_NEWER
-            failed = request.result != UnityWebRequest.Result.Success;
-#else
-            failed = request.isNetworkError || request.isHttpError;
-#endif
-            if (failed)
-            {
+                bool ok = false;
+                yield return ImportRoutine(data, v => ok = v);
                 _loading = false;
-                string detail = $"HTTP {request.responseCode}: {request.error}";
-                Debug.LogError($"[ModelLoader] 下载失败 {url} -> {detail}");
-                SendError(detail, "loadModel");
-                yield break;
-            }
 
-            byte[] data = request.downloadHandler.data;
-            request.Dispose();
-
-            // 写入本地缓存（按 modelId + version + hash 命名，便于版本失效与清理）。
-            if (!string.IsNullOrEmpty(cachedPath))
-            {
-                try
+                if (!ok || data == null || data.Length == 0)
                 {
-                    Directory.CreateDirectory(CacheDir);
-                    File.WriteAllBytes(cachedPath, data);
-                    UpdateCacheIndex(currentModelId, _currentVersion, _currentHash, cachedPath);
+                    SendError("模型解析失败：格式不受支持或内容为空", "loadModel");
+                    yield break;
                 }
-                catch (Exception e)
-                {
-                    Debug.LogWarning($"[ModelLoader] 写缓存失败: {e.Message}");
-                }
-            }
 
+                SendEvent("onModelLoaded",
+                    $"{{\"success\":true,\"modelId\":{currentModelId},\"bytes\":{data.Length}," +
+                    $"\"rendererCount\":{renderersCount(loadedRoot)},\"fromCache\":false}}");
+            }
+        }
+
+        /// <summary>
+        /// 统一解析入口：GLTFast（Task 轮询转协程）或降级缓存。完成后回调 done(success)。
+        /// </summary>
+        private IEnumerator ImportRoutine(byte[] data, Action<bool> done)
+        {
+#if FORKLIFT_GLTFAST
+            yield return ImportWithGltfast(data, done);
+#else
+            ImportFallback(data);
+            done(false);
+            yield break;
+#endif
+        }
+
+#if FORKLIFT_GLTFAST
+        /// <summary>
+        /// GLTFast 导入：LoadGltfBinaryAsync + InstantiateSceneAsync。
+        /// 每次导入新建 GltfImport 实例（官方建议一实例一次导入），用完 Dispose。
+        /// </summary>
+        private IEnumerator ImportWithGltfast(byte[] data, Action<bool> done)
+        {
+            if (data == null || data.Length == 0) { done(false); yield break; }
+
+            GltfImport importer = null;
+            GameObject root = null;
             try
             {
-                if (TryImport(data, cachedPath ?? url))
+                importer = new GltfImport();
+
+                Task<bool> loadTask = importer.LoadGltfBinaryAsync(data);
+                while (!loadTask.IsCompleted) yield return null;
+
+                if (!loadTask.Result)
                 {
-                    _loading = false;
-                    SendEvent("onModelLoaded",
-                        $"{{\"success\":true,\"modelId\":{currentModelId},\"bytes\":{data.Length}," +
-                        $"\"rendererCount\":{renderersCount(loadedRoot)},\"fromCache\":false}}");
+                    Debug.LogError("[ModelLoader] GLTFast 解析失败");
+                    done(false);
                     yield break;
                 }
 
-                _loading = false;
-                SendError("模型解析失败：格式不受支持或内容为空", "loadModel");
+                root = new GameObject($"Model_{currentModelId}");
+                Task<bool> instTask = importer.InstantiateSceneAsync(root.transform);
+                while (!instTask.IsCompleted) yield return null;
+
+                if (!instTask.Result)
+                {
+                    Destroy(root);
+                    root = null;
+                    Debug.LogError("[ModelLoader] GLTFast 实例化失败");
+                    done(false);
+                    yield break;
+                }
+
+                loadedRoot = root;
+                root.transform.SetParent(modelContainer, false);
+                NormalizeScale(root);
+                done(true);
             }
             catch (Exception ex)
             {
-                _loading = false;
+                if (root != null) Destroy(root);
                 Debug.LogError($"[ModelLoader] 导入异常: {ex}");
-                SendError($"模型导入失败: {ex.Message}", "loadModel");
+                done(false);
             }
-        }
-
-        /// <summary>
-        /// 统一解析入口（GLTFast 或降级）。成功返回 true 并把 root 挂到 modelContainer。
-        /// </summary>
-        private bool TryImport(byte[] data, string sourcePath)
-        {
-            if (data == null || data.Length == 0) return false;
-            GameObject root = ImportModel(data, sourcePath, out string cachePath);
-            if (root == null)
+            finally
             {
-                if (cachePath != null)
-                    Debug.LogWarning($"[ModelLoader] 已缓存 {cachePath}，但未安装 com.unity.cloud.gltfast，无法解析");
-                return false;
+                if (importer != null) importer.Dispose();
             }
-            loadedRoot = root;
-            root.transform.SetParent(modelContainer, false);
-            NormalizeScale(root);
-            return true;
         }
+#else
+        /// <summary>
+        /// 降级分支：没有 GLTFast 时无法解析 glTF，把字节落到缓存目录并提示装包。
+        /// 目的：让链路可诊断，而不是谎报加载成功。
+        /// </summary>
+        private void ImportFallback(byte[] data)
+        {
+            string dir = Path.Combine(Application.persistentDataPath, "models");
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+            string hashPart = string.IsNullOrEmpty(_currentHash)
+                ? "v" + _currentVersion
+                : _currentHash.Substring(0, Mathf.Min(8, _currentHash.Length));
+            string filename = $"model_{currentModelId}_{hashPart}.{_currentFormat}";
+            string cachePath = Path.Combine(dir, filename);
+            try { File.WriteAllBytes(cachePath, data); }
+            catch (Exception e) { Debug.LogWarning($"[ModelLoader] 落盘失败: {e.Message}"); }
+
+            Debug.LogWarning($"[ModelLoader] 已缓存 {cachePath}（{data?.Length ?? 0} bytes），" +
+                             "但未安装 com.unity.cloud.gltfast，无法解析 glTF，模型不会显示。");
+        }
+#endif
 
         /// <summary>
         /// 缓存文件名：model_{id}_v{version}_{hash8}.glb
-        /// 没有 hash 时退化为仅按 modelId（仍可被新版本覆盖）。
+        /// 没有 hash 时退化为仅按 modelId + version。
         /// </summary>
         private string ResolveCachePath()
         {
@@ -228,97 +301,9 @@ namespace ForkliftBao.Viewer
             }
         }
 
-        /// <summary>
-        /// 把原始字节解析成 Unity GameObject。
-        /// 返回 null 表示无法显示模型，此时 cachePath 给出诊断信息。
-        /// </summary>
-        private GameObject ImportModel(byte[] data, string url, out string cachePath)
-        {
-            cachePath = null;
-            if (data == null || data.Length == 0) return null;
-
-#if FORKLIFT_GLTFAST
-            return ImportWithGltfast(data, url, out cachePath);
-#else
-            return ImportFallback(data, url, out cachePath);
-#endif
-        }
-
-#if FORKLIFT_GLTFAST
-        /// <summary>
-        /// GLTFast 异步导入：解析 glTF/GLB → MeshRenderer / Animator / SkinnedMeshRenderer。
-        /// 这是唯一的正确路径；缺包时应装包而不是长期依赖降级分支。
-        /// </summary>
-        private GameObject ImportWithGltfast(byte[] data, string url, out string cachePath)
-        {
-            string dir = TemporaryFolder;
-            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-
-            string path = Path.Combine(dir, FileWithoutExt(url) + ".glb");
-            File.WriteAllBytes(path, data);
-            cachePath = path;
-
-            var importer = new GltfImport();
-            var result = importer.Load(path);
-            if (!result.IsSuccess)
-            {
-                Debug.LogError($"[ModelLoader] GLTFast 解析失败: {result.Error}");
-                return null;
-            }
-
-            importer.FinalizeMeshes();
-
-            Transform scene = importer.GetSceneRootNode();
-            if (scene == null) return null;
-
-            GameObject root = new GameObject("Model_" + currentModelId);
-            scene.SetParent(root.transform, false);
-            importer.Parent = root.transform;
-            importer.FinalizeNodes();
-
-            return root;
-        }
-
-        private static string TemporaryFolder =>
-            Path.Combine(Application.temporaryCachePath, "forklift_cli_3d");
-#else
-        /// <summary>
-        /// 降级分支：没有 GLTFast 时无法解析 glTF，把字节落到缓存目录并提示装包。
-        /// 目的：让链路可诊断，而不是像旧版本那样谎报加载成功。
-        /// </summary>
-        private GameObject ImportFallback(byte[] data, string url, out string cachePath)
-        {
-            string dir = cacheInPersistentData
-                ? Application.persistentDataPath
-                : Application.streamingAssetsPath;
-            dir = Path.Combine(dir, "models");
-            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-
-            string filename = $"{currentModelId}_{FileWithoutExt(url)}.{ExtensionOf(url)}";
-            cachePath = Path.Combine(dir, filename);
-            File.WriteAllBytes(cachePath, data);
-
-            Debug.LogWarning($"[ModelLoader] 已缓存 {cachePath}（{data.Length} bytes），" +
-                             "但未安装 com.unity.cloud.gltfast，无法解析 glTF，模型不会显示。");
-            return null;
-        }
-#endif
-
         private static int renderersCount(GameObject root)
         {
             return root == null ? 0 : root.GetComponentsInChildren<Renderer>().Length;
-        }
-
-        private static string FileWithoutExt(string url)
-        {
-            string name = Path.GetFileNameWithoutExtension(new Uri(url).ToString());
-            return name.Length > 0 ? name : "model";
-        }
-
-        private static string ExtensionOf(string url)
-        {
-            string ext = Path.GetExtension(new Uri(url).ToString());
-            return string.IsNullOrEmpty(ext) ? "glb" : ext.Substring(1).ToLowerInvariant();
         }
 
         /// <summary>
@@ -327,16 +312,11 @@ namespace ForkliftBao.Viewer
         /// </summary>
         private void NormalizeScale(GameObject root)
         {
-            var bounds = new Bounds();
             var renderers = root.GetComponentsInChildren<Renderer>();
             if (renderers.Length == 0) return;
 
-            bool initialized = false;
-            foreach (var r in renderers)
-            {
-                if (!initialized) { bounds = r.bounds; initialized = true; }
-                else bounds.Encapsulate(r.bounds);
-            }
+            var bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
 
             float largest = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
             if (largest <= 0f) return;

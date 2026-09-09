@@ -58,6 +58,10 @@ Glb/
 GlbTest/
 BookTool/
 troublecode/
+铭牌数据/
+
+# ── 日志 ──
+backend/backend.log
 
 # ── 临时文件 ──
 snapshots/tmp/

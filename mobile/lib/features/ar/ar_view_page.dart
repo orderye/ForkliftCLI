@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:forklift_bao/core/api/api_client.dart';
-import 'package:model_viewer_plus/model_viewer_plus.dart';
+import 'package:forklift_bao/core/unity/unity_view_wrapper.dart';
 
 /// AR实景查看页
 /// 对应需求文档：十六(AR功能)、十七(真实尺寸)、十八(空间占位)、十九(AR门架动作)
@@ -96,22 +96,21 @@ class _ArViewPageState extends State<ArViewPage> {
     );
   }
 
-  /// AR摄像头视图 — 占位展示
+  /// AR摄像头视图 — 有模型时走 UnityViewWrapper（AR 模式，1:1 真实尺寸）
   Widget _buildArCameraView() {
     final modelUrl = _model3d?['file_url'] ?? '';
 
-    if (modelUrl.isNotEmpty) {
-      // 有真实3D模型时使用ModelViewer
-      return ModelViewer(
-        src: modelUrl,
-        alt: 'AR叉车',
-        ar: true,
-        arTracking: 'world-tracking',
-        autoRotate: false,
-        autoPlay: true,
-        cameraControls: true,
-        shadowIntensity: 1,
-        shadowSoftness: 0.5,
+    if (modelUrl.isNotEmpty && widget.forkliftModelId != null) {
+      return UnityViewWrapper(
+        forkliftModelId: widget.forkliftModelId,
+        modelUrl: modelUrl,
+        modelVersion: _model3d?['version'] ?? 1,
+        contentHash: _model3d?['content_hash'] ?? '',
+        format: _model3d?['format'] ?? 'glb',
+        enableAR: true,
+        arConfig: _arConfig,
+        onModelLoaded: () => setState(() {}),
+        onARPlaneDetected: () => setState(() {}),
       );
     }
 

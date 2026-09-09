@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:forklift_bao/core/api/api_client.dart';
-import 'package:forklift_bao/core/models/models.dart';
-import 'package:model_viewer_plus/model_viewer_plus.dart';
+import 'package:forklift_bao/core/unity/unity_view_wrapper.dart';
 
 class ThreeDViewerPage extends StatefulWidget {
   final int? forkliftModelId;
@@ -112,27 +111,20 @@ class _ThreeDViewerPageState extends State<ThreeDViewerPage> {
       return _buildDemoView();
     }
 
-    return Column(
-      children: [
-        // 3D模型展示区
-        Expanded(
-          flex: 3,
-          child: ModelViewer(
-            src: modelUrl,
-            alt: '叉车3D模型',
-            ar: false,
-            autoRotate: _autoRotate,
-            autoPlay: true,
-            cameraControls: true,
-            disableZoom: false,
-            shadowIntensity: 1,
-            shadowSoftness: 0.5,
-          ),
-        ),
+    final version = _model3d?['version'] ?? 1;
+    final contentHash = _model3d?['content_hash'] ?? '';
+    final format = _model3d?['format'] ?? 'glb';
 
-        // 控制面板
-        _buildControlPanel(),
-      ],
+    return UnityViewWrapper(
+      forkliftModelId: widget.forkliftModelId,
+      modelUrl: modelUrl,
+      modelVersion: version,
+      contentHash: contentHash,
+      format: format,
+      enableAR: false,
+      onModelLoaded: () {
+        setState(() {});
+      },
     );
   }
 
@@ -420,6 +412,5 @@ class _ThreeDViewerPageState extends State<ThreeDViewerPage> {
         backgroundColor: const Color(0xFF1565C0),
       ),
     );
-  }
   }
 }

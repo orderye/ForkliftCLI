@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel
 
 
@@ -16,8 +17,8 @@ class Model3DOut(BaseModel):
     storage_provider: str | None = None
     storage_key: str | None = None
     mime_type: str | None = None
-    uploaded_at: str | None = None
-    updated_at: str | None = None
+    uploaded_at: datetime | None = None
+    updated_at: datetime | None = None
 
     class Config:
         from_attributes = True

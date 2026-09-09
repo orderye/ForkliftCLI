@@ -9,7 +9,6 @@ from app.models.model3d import Model3D, Model3DPart, Model3DAnimation, ArModelCo
 from app.schemas.model3d import Model3DOut, Model3DPartOut, Model3DAnimationOut, ArConfigOut
 from app.schemas.model3d import Model3DCreate
 from datetime import datetime, timezone
-import os
 
 router = APIRouter(prefix="/3d", tags=["3D模型"])
 
@@ -19,15 +18,6 @@ def _mime_of_format(fmt: str) -> str:
     if f == "gltf":
         return "model/gltf+json"
     return "model/gltf-binary"
-
-def _serialize_datetime(dt) -> str | None:
-    if dt is None:
-        return None
-    if isinstance(dt, datetime):
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
-    return str(dt)
 
 
 @router.get("/models", response_model=list[Model3DOut])
@@ -68,10 +58,11 @@ def list_animations(model_id: int, db: Session = Depends(get_db), _: User = Depe
 @router.get("/forklift/{forklift_model_id}")
 @safe_api
 def get_forklift_3d(forklift_model_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    """根据叉车车型ID获取3D模型"""
+    """根据叉车车型ID获取3D模型（返回最新版本）"""
     model = (
         db.query(Model3D)
         .filter(Model3D.forklift_model_id == forklift_model_id)
+        .order_by(Model3D.version.desc())
         .first()
     )
     if not model:
@@ -180,10 +171,7 @@ async def upload_3d_model(
             existing.updated_at = datetime.now(timezone.utc)
             db.commit()
             db.refresh(existing)
-            out = Model3DOut.model_validate(existing)
-            out.uploaded_at = _serialize_datetime(existing.uploaded_at)
-            out.updated_at = _serialize_datetime(existing.updated_at)
-            return out
+            return Model3DOut.model_validate(existing)
         version = (existing.version or 0) + 1
 
     file_size_mb = round(len(data) / (1024 * 1024), 3)
@@ -207,10 +195,7 @@ async def upload_3d_model(
     db.commit()
     db.refresh(model)
 
-    out = Model3DOut.model_validate(model)
-    out.uploaded_at = _serialize_datetime(model.uploaded_at)
-    out.updated_at = _serialize_datetime(model.updated_at)
-    return out
+    return Model3DOut.model_validate(model)
 
 
 @router.post("/{model_id}/release", response_model=Model3DOut)
@@ -254,7 +239,4 @@ async def release_3d_model(
     db.commit()
     db.refresh(model)
 
-    out = Model3DOut.model_validate(model)
-    out.uploaded_at = _serialize_datetime(model.uploaded_at)
-    out.updated_at = _serialize_datetime(model.updated_at)
-    return out
+    return Model3DOut.model_validate(model)

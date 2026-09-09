@@ -174,8 +174,7 @@ class _UnityViewWrapperState extends State<UnityViewWrapper> {
       children: [
         UnityWidget(
           onUnityCreated: _onUnityCreated,
-          onUnityMessage: (controller, message) =>
-              _bridge.onUnityMessage(message),
+          onUnityMessage: (message) => _bridge.onUnityMessage(message),
           useAndroidViewSurface: true,
           enablePlaceholder: !_ready && _error == null,
           placeholder: _placeholder(context),
@@ -190,7 +189,7 @@ class _UnityViewWrapperState extends State<UnityViewWrapper> {
     return Center(
       child: Text(
         '加载 3D 模型中…',
-        style: Theme.of(context).textContentStyle,
+        style: Theme.of(context).textTheme.bodyMedium,
       ),
     );
   }
