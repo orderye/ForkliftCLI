@@ -45,6 +45,11 @@ mobile/ios/.symlinks/
 # ── Uploads ──
 backend/uploads/
 
+# ── Test artifacts ──
+backend/.coverage
+backend/htmlcov/
+backend/coverage.xml
+
 # ── Node ──
 node_modules/
 

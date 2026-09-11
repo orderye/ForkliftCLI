@@ -6,6 +6,7 @@ import 'package:forklift_bao/features/home/home_page.dart';
 import 'package:forklift_bao/features/auth/login_page.dart';
 import 'package:forklift_bao/features/forklift/brand_list_page.dart';
 import 'package:forklift_bao/features/ai_assistant/ai_chat_page.dart';
+import 'package:forklift_bao/features/ai_assistant/ai_diagnosis_page.dart';
 import 'package:forklift_bao/features/profile/profile_page.dart';
 import 'package:forklift_bao/features/ocr/ocr_scan_page.dart';
 import 'package:forklift_bao/features/parts/parts_search_page.dart';
@@ -18,6 +19,9 @@ import 'package:forklift_bao/features/subscription/subscription_page.dart';
 import 'package:forklift_bao/features/subscription/plans_page.dart';
 import 'package:forklift_bao/features/subscription/trial_page.dart';
 import 'package:forklift_bao/features/subscription/enterprise_page.dart';
+import 'package:forklift_bao/features/manual/manual_list_page.dart';
+import 'package:forklift_bao/features/manual/manual_detail_page.dart';
+import 'package:forklift_bao/features/manual/manual_reader_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -39,30 +43,68 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) => MainShell(child: child),
         routes: [
           GoRoute(path: '/', builder: (context, state) => const HomePage()),
-          GoRoute(path: '/brands', builder: (context, state) => const BrandListPage()),
+          GoRoute(
+              path: '/brands',
+              builder: (context, state) => const BrandListPage()),
           GoRoute(path: '/ai', builder: (context, state) => const AiChatPage()),
-          GoRoute(path: '/profile', builder: (context, state) => const ProfilePage()),
+          GoRoute(
+            path: '/ai/diagnose',
+            builder: (context, state) {
+              final modelId =
+                  int.tryParse(state.uri.queryParameters['modelId'] ?? '');
+              final engineModelId = int.tryParse(
+                  state.uri.queryParameters['engineModelId'] ?? '');
+              return AiDiagnosisPage(
+                initialForkliftModelId: modelId,
+                initialEngineModelId: engineModelId,
+              );
+            },
+          ),
+          GoRoute(
+              path: '/profile',
+              builder: (context, state) => const ProfilePage()),
         ],
       ),
       GoRoute(path: '/ocr', builder: (context, state) => const OcrScanPage()),
-      GoRoute(path: '/parts', builder: (context, state) => const PartsSearchPage()),
-      GoRoute(path: '/my-forklifts', builder: (context, state) => const MyForkliftsPage()),
-      GoRoute(path: '/engines', builder: (context, state) => const EngineListPage()),
+      GoRoute(
+          path: '/parts', builder: (context, state) => const PartsSearchPage()),
+      GoRoute(
+          path: '/my-forklifts',
+          builder: (context, state) => const MyForkliftsPage()),
+      GoRoute(
+          path: '/engines',
+          builder: (context, state) => const EngineListPage()),
       GoRoute(
         path: '/3d',
         builder: (context, state) {
           final modelId = state.uri.queryParameters['modelId'];
-          return ThreeDViewerPage(forkliftModelId: modelId != null ? int.tryParse(modelId) : null);
+          return ThreeDViewerPage(
+              forkliftModelId: modelId != null ? int.tryParse(modelId) : null);
         },
       ),
       GoRoute(
         path: '/ar',
         builder: (context, state) {
           final modelId = state.uri.queryParameters['modelId'];
-          return ArViewPage(forkliftModelId: modelId != null ? int.tryParse(modelId) : null);
+          return ArViewPage(
+              forkliftModelId: modelId != null ? int.tryParse(modelId) : null);
         },
       ),
-      GoRoute(path: '/embed', builder: (context, state) => const EmbedSearchPage()),
+      GoRoute(
+          path: '/embed', builder: (context, state) => const EmbedSearchPage()),
+      GoRoute(
+          path: '/manuals',
+          builder: (context, state) => ManualListPage(
+              modelId:
+                  int.tryParse(state.uri.queryParameters['modelId'] ?? ''))),
+      GoRoute(
+          path: '/manuals/:id',
+          builder: (context, state) => ManualDetailPage(
+              manualId: int.parse(state.pathParameters['id']!))),
+      GoRoute(
+          path: '/manuals/:id/read',
+          builder: (context, state) => ManualReaderPage(
+              manualId: int.parse(state.pathParameters['id']!))),
     ],
   );
 });
@@ -99,10 +141,14 @@ class MainShell extends StatelessWidget {
 
   void _onItemTapped(int index, BuildContext context) {
     switch (index) {
-      case 0: context.go('/');
-      case 1: context.go('/brands');
-      case 2: context.go('/ai');
-      case 3: context.go('/profile');
+      case 0:
+        context.go('/');
+      case 1:
+        context.go('/brands');
+      case 2:
+        context.go('/ai');
+      case 3:
+        context.go('/profile');
     }
   }
 }

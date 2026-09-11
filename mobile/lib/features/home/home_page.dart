@@ -25,13 +25,14 @@ class HomePage extends StatelessWidget {
             GestureDetector(
               onTap: () => context.push('/parts'),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -68,7 +69,10 @@ class HomePage extends StatelessWidget {
                     SizedBox(height: 12),
                     Text(
                       '扫描铭牌',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white),
                     ),
                     SizedBox(height: 4),
                     Text(
@@ -82,7 +86,8 @@ class HomePage extends StatelessWidget {
             const SizedBox(height: 20),
 
             // 六大功能入口
-            const Text('功能入口', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('功能入口',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             GridView.count(
               shrinkWrap: true,
@@ -92,14 +97,21 @@ class HomePage extends StatelessWidget {
               crossAxisSpacing: 12,
               childAspectRatio: 1.0,
               children: [
-                _buildFeatureCard(context, Icons.agriculture, '我的叉车', '/my-forklifts'),
+                _buildFeatureCard(
+                    context, Icons.agriculture, '我的叉车', '/my-forklifts'),
                 _buildFeatureCard(context, Icons.smart_toy, 'AI维修助手', '/ai'),
-                _buildFeatureCard(context, Icons.account_tree, '结构图', '/brands'),
+                _buildFeatureCard(
+                    context, Icons.health_and_safety, '故障诊断', '/ai/diagnose'),
+                _buildFeatureCard(
+                    context, Icons.account_tree, '结构图', '/brands'),
                 _buildFeatureCard(context, Icons.settings, '配件查询', '/parts'),
-                _buildFeatureCard(context, Icons.engineering, '发动机', '/engines'),
-                _buildFeatureCard(context, Icons.threeDRotation, '3D叉车', '/3d'),
+                _buildFeatureCard(
+                    context, Icons.engineering, '发动机', '/engines'),
+                _buildFeatureCard(context, Icons.view_in_ar, '3D叉车', '/3d'),
                 _buildFeatureCard(context, Icons.view_in_ar, 'AR实景', '/ar'),
-                _buildFeatureCard(context, Icons.image_search, '图文检索', '/embed'),
+                _buildFeatureCard(context, Icons.menu_book, '维修手册', '/manuals'),
+                _buildFeatureCard(
+                    context, Icons.image_search, '图文检索', '/embed'),
               ],
             ),
           ],
@@ -108,7 +120,9 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureCard(BuildContext context, IconData icon, String label, String? route, {bool comingSoon = false}) {
+  Widget _buildFeatureCard(
+      BuildContext context, IconData icon, String label, String? route,
+      {bool comingSoon = false}) {
     return GestureDetector(
       onTap: route != null ? () => context.push(route) : null,
       child: Container(
@@ -117,7 +131,7 @@ class HomePage extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -128,18 +142,22 @@ class HomePage extends StatelessWidget {
           children: [
             Stack(
               children: [
-                Icon(icon, size: 32, color: comingSoon ? Colors.grey : const Color(0xFF1565C0)),
+                Icon(icon,
+                    size: 32,
+                    color: comingSoon ? Colors.grey : const Color(0xFF1565C0)),
                 if (comingSoon)
                   Positioned(
                     right: -8,
                     top: -4,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 1),
                       decoration: BoxDecoration(
                         color: Colors.orange,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text('即将', style: TextStyle(fontSize: 8, color: Colors.white)),
+                      child: const Text('即将',
+                          style: TextStyle(fontSize: 8, color: Colors.white)),
                     ),
                   ),
               ],

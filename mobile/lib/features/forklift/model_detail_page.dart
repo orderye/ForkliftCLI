@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:forklift_bao/core/api/api_client.dart';
-import 'package:forklift_bao/core/models/models.dart';
 import 'package:forklift_bao/features/diagram/diagram_view_page.dart';
 import 'package:forklift_bao/features/parts/parts_search_page.dart';
 
@@ -12,7 +12,8 @@ class ModelDetailPage extends StatefulWidget {
   State<ModelDetailPage> createState() => _ModelDetailPageState();
 }
 
-class _ModelDetailPageState extends State<ModelDetailPage> with SingleTickerProviderStateMixin {
+class _ModelDetailPageState extends State<ModelDetailPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   Map<String, dynamic>? _model;
   Map<String, dynamic>? _spec;
@@ -44,7 +45,8 @@ class _ModelDetailPageState extends State<ModelDetailPage> with SingleTickerProv
 
       Map<String, dynamic>? spec;
       try {
-        final resp = await api.dio.get('/api/v1/forklifts/models/${widget.modelId}/specification');
+        final resp = await api.dio
+            .get('/api/v1/forklifts/models/${widget.modelId}/specification');
         spec = resp.data;
       } catch (_) {}
 
@@ -64,10 +66,14 @@ class _ModelDetailPageState extends State<ModelDetailPage> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(appBar: AppBar(title: const Text('加载中...')), body: const Center(child: CircularProgressIndicator()));
+      return Scaffold(
+          appBar: AppBar(title: const Text('加载中...')),
+          body: const Center(child: CircularProgressIndicator()));
     }
     if (_model == null) {
-      return Scaffold(appBar: AppBar(title: const Text('车型详情')), body: const Center(child: Text('加载失败')));
+      return Scaffold(
+          appBar: AppBar(title: const Text('车型详情')),
+          body: const Center(child: Text('加载失败')));
     }
 
     final m = _model!;
@@ -111,7 +117,8 @@ class _ModelDetailPageState extends State<ModelDetailPage> with SingleTickerProv
         // 性能参数
         _buildSection('性能参数', [
           _buildRow('额定载荷', '${m['load_capacity_kg']?.toInt() ?? "-"} kg'),
-          _buildRow('载荷中心距', '${m['load_capacity_ton']?.toStringAsFixed(1) ?? "-"} t'),
+          _buildRow('载荷中心距',
+              '${m['load_capacity_ton']?.toStringAsFixed(1) ?? "-"} t'),
           _buildRow('起升高度', '${m['lift_height_mm']?.toInt() ?? "-"} mm'),
           _buildRow('最大速度', '${m['max_speed_kmh']?.toInt() ?? "-"} km/h'),
         ]),
@@ -200,16 +207,42 @@ class _ModelDetailPageState extends State<ModelDetailPage> with SingleTickerProv
   }
 
   Widget _buildFaultsTab() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.warning_amber, size: 48, color: Colors.grey),
-          SizedBox(height: 16),
-          Text('故障诊断功能需配置AI服务后使用'),
-          SizedBox(height: 8),
-          Text('请在 AI维修 功能中咨询', style: TextStyle(color: Colors.grey)),
-        ],
+    final modelName =
+        '${_model?['brand_name'] ?? ''} ${_model?['name'] ?? ''}'.trim();
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.health_and_safety,
+                    size: 56, color: Color(0xFF1565C0)),
+                const SizedBox(height: 16),
+                const Text('AI 故障诊断',
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text(
+                  modelName.isEmpty
+                      ? '描述故障现象，获取可能原因和检查顺序'
+                      : '将以 $modelName 作为车型上下文进行分析',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () =>
+                      context.push('/ai/diagnose?modelId=${widget.modelId}'),
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('开始诊断'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -222,7 +255,9 @@ class _ModelDetailPageState extends State<ModelDetailPage> with SingleTickerProv
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: Text(title,
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
           ...children,
         ],
@@ -237,7 +272,9 @@ class _ModelDetailPageState extends State<ModelDetailPage> with SingleTickerProv
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
         ],
       ),
     );

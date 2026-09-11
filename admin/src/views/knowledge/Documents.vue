@@ -5,7 +5,7 @@
       <el-select v-model="query.doc_type" placeholder="类型" clearable style="width: 160px">
         <el-option label="维修手册" value="manual" />
         <el-option label="故障案例" value="case" />
-        <el-option label="保养指南" value="maintenance" />
+        <el-option label="参数资料" value="parameter" />
       </el-select>
       <el-button type="primary" @click="loadData">查询</el-button>
       <el-button type="success" @click="onAdd">新增文档</el-button>
@@ -44,7 +44,7 @@
           <el-select v-model="dialog.form.doc_type" style="width: 100%">
             <el-option label="维修手册" value="manual" />
             <el-option label="故障案例" value="case" />
-            <el-option label="保养指南" value="maintenance" />
+            <el-option label="参数资料" value="parameter" />
           </el-select>
         </el-form-item>
         <el-form-item label="来源"><el-input v-model="dialog.form.source" /></el-form-item>
@@ -74,7 +74,7 @@ const query = reactive({ page: 1, page_size: 10, keyword: '', doc_type: '' })
 const emptyForm = () => ({ title: '', content: '', source: '', doc_type: 'manual' })
 const dialog = reactive({ visible: false, saving: false, id: 0, form: emptyForm() })
 
-const typeLabel = (t: string) => ({ manual: '维修手册', case: '故障案例', maintenance: '保养指南' }[t] || t || '—')
+const typeLabel = (t: string) => ({ manual: '维修手册', case: '故障案例', parameter: '参数资料' }[t] || t || '—')
 const fmt = (t: string | null) => (t ? t.replace('T', ' ').slice(0, 19) : '—')
 
 async function loadData() {

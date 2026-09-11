@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:forklift_bao/core/api/api_client.dart';
 
 class AiChatPage extends StatefulWidget {
@@ -23,7 +24,7 @@ class _AiChatPageState extends State<AiChatPage> {
 
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isLoading) return;
 
     setState(() {
       _messages.add(_ChatMessage(role: 'user', content: text));
@@ -34,6 +35,7 @@ class _AiChatPageState extends State<AiChatPage> {
 
     try {
       final response = await ApiClient().aiChat(text);
+      if (!mounted) return;
       setState(() {
         _messages.add(_ChatMessage(
           role: 'assistant',
@@ -41,6 +43,7 @@ class _AiChatPageState extends State<AiChatPage> {
         ));
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _messages.add(_ChatMessage(
           role: 'assistant',
@@ -48,8 +51,10 @@ class _AiChatPageState extends State<AiChatPage> {
         ));
       });
     } finally {
-      setState(() => _isLoading = false);
-      _scrollToBottom();
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _scrollToBottom();
+      }
     }
   }
 
@@ -72,15 +77,23 @@ class _AiChatPageState extends State<AiChatPage> {
         title: const Text('AI维修助手'),
         actions: [
           IconButton(
+            tooltip: '结构化故障诊断',
+            icon: const Icon(Icons.health_and_safety_outlined),
+            onPressed: () => context.push('/ai/diagnose'),
+          ),
+          IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: () {
               showDialog(
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('AI维修助手'),
-                  content: const Text('输入叉车故障描述，AI将结合车型信息和维修知识库为您诊断故障原因，并给出维修建议。\n\n支持文字输入，描述越详细诊断越准确。'),
+                  content: const Text(
+                      '输入叉车故障描述，AI将结合车型信息和维修知识库为您诊断故障原因，并给出维修建议。\n\n支持文字输入，描述越详细诊断越准确。'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('知道了')),
+                    TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('知道了')),
                   ],
                 ),
               );
@@ -99,9 +112,11 @@ class _AiChatPageState extends State<AiChatPage> {
                       children: [
                         Icon(Icons.smart_toy, size: 64, color: Colors.grey),
                         SizedBox(height: 16),
-                        Text('描述叉车故障，AI为您诊断', style: TextStyle(color: Colors.grey)),
+                        Text('描述叉车故障，AI为您诊断',
+                            style: TextStyle(color: Colors.grey)),
                         SizedBox(height: 8),
-                        Text('例如：叉车发动机启动困难', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        Text('例如：叉车发动机启动困难',
+                            style: TextStyle(color: Colors.grey, fontSize: 12)),
                       ],
                     ),
                   )
@@ -123,7 +138,7 @@ class _AiChatPageState extends State<AiChatPage> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
@@ -144,7 +159,8 @@ class _AiChatPageState extends State<AiChatPage> {
                       ),
                       filled: true,
                       fillColor: const Color(0xFFF5F5F5),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
                     ),
                     onSubmitted: (_) => _sendMessage(),
                   ),
@@ -183,7 +199,7 @@ class _AiChatPageState extends State<AiChatPage> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 5,
               offset: const Offset(0, 2),
             ),
