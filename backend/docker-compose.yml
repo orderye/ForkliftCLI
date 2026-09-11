@@ -10,6 +10,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forklift -d forklift"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     restart: unless-stopped
 
   redis:
@@ -17,6 +22,11 @@ services:
     container_name: forklift-redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
     restart: unless-stopped
 
   qdrant:
@@ -32,9 +42,12 @@ services:
     build: .
     container_name: forklift-backend
     depends_on:
-      - db
-      - redis
-      - qdrant
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql://forklift:forklift@db:5432/forklift
       REDIS_URL: redis://redis:6379/0

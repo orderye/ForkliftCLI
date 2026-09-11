@@ -1,7 +1,7 @@
 """add model3d version fields
 
 Revision ID: 20240908_add_model3d_version_fields
-Revises:
+Revises: 20000101_001_reconcile_legacy_columns
 Create Date: 2024-09-08 10:00:00.000000
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision = '20240908_add_model3d_version_fields'
-down_revision = None
+down_revision = '20000101_001_reconcile_legacy_columns'
 branch_labels = None
 depends_on = None
 
@@ -44,9 +44,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_column('model_3d', 'uploaded_at')
-    op.drop_column('model_3d', 'mime_type')
-    op.drop_column('model_3d', 'storage_key')
-    op.drop_column('model_3d', 'storage_provider')
-    op.drop_column('model_3d', 'content_hash')
-    op.drop_column('model_3d', 'version')
+    for col in ('uploaded_at', 'mime_type', 'storage_key', 'storage_provider', 'content_hash', 'version'):
+        if _has_column('model_3d', col):
+            op.drop_column('model_3d', col)

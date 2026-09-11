@@ -4,14 +4,18 @@ MASTER_PLAN 4.3 版权合规：
 - knowledge_documents: +copyright_owner/license_type/license_expire/commercial_use（已有 source）
 - diagrams / model_3d: +source 及其余 4 列
 
+幂等：列已存在则跳过。
+
 Revision ID: 20260909_add_copyright_fields
 Revises: 20260909_add_admin_tables
 Create Date: 2026-09-09
 
 """
+import copy
+
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.engine import reflection
+from sqlalchemy import inspect
 
 
 revision = '20260909_add_copyright_fields'
@@ -20,7 +24,7 @@ branch_labels = None
 depends_on = None
 
 
-# 表 → 需要补充的列（存在则跳过，幂等）
+# 表 → 需要补充的列
 TARGETS = {
     'knowledge_documents': [
         'copyright_owner', 'license_type', 'license_expire', 'commercial_use',
@@ -42,27 +46,30 @@ COLUMNS = {
 }
 
 
+def _table_columns(bind):
+    inspector = inspect(bind)
+    tables = set(inspector.get_table_names())
+    return {
+        table: {c['name'] for c in inspector.get_columns(table)}
+        for table in tables
+    }
+
+
 def upgrade() -> None:
-    bind = op.get_bind()
-    inspector = reflection.Inspector.from_engine(bind)
-    tables = inspector.get_table_names()
+    existing = _table_columns(op.get_bind())
     for table, columns in TARGETS.items():
-        if table not in tables:
+        if table not in existing:
             continue
-        existing = {c['name'] for c in inspector.get_columns(table)}
         for name in columns:
-            if name not in existing:
-                op.add_column(table, COLUMNS[name].copy())
+            if name not in existing[table]:
+                op.add_column(table, copy.copy(COLUMNS[name]))
 
 
 def downgrade() -> None:
-    bind = op.get_bind()
-    inspector = reflection.Inspector.from_engine(bind)
-    tables = inspector.get_table_names()
+    existing = _table_columns(op.get_bind())
     for table, columns in TARGETS.items():
-        if table not in tables:
+        if table not in existing:
             continue
-        existing = {c['name'] for c in inspector.get_columns(table)}
         for name in columns:
-            if name in existing:
+            if name in existing[table]:
                 op.drop_column(table, name)

@@ -15,6 +15,8 @@ from app.models.ai import (
 from app.models.model3d import Model3D, Model3DPart, Model3DAnimation, ArModelConfig
 from app.models.enterprise import Enterprise
 from app.models.admin_audit_logs import AdminAuditLogs
+from app.models.subscription import TrialCard, EnterpriseAccount, SubscriptionLog
+from app.models.payment import Payment
 
 __all__ = [
     "User",
@@ -28,4 +30,6 @@ __all__ = [
     "UserForklift", "MaintenanceRecord", "MaintenanceReminder",
     "KnowledgeDocument", "KnowledgeChunk", "FaultCode", "FaultTree",
     "Model3D", "Model3DPart", "Model3DAnimation", "ArModelConfig",
+    "TrialCard", "EnterpriseAccount", "SubscriptionLog",
+    "Payment",
 ]

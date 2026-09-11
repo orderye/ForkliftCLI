@@ -7,7 +7,7 @@ Create Date: 2026-09-09
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.engine import reflection
+from sqlalchemy import inspect
 
 
 revision = '20260909_add_ai_tables'
@@ -17,9 +17,7 @@ depends_on = None
 
 
 def _table_exists(table_name: str) -> bool:
-    bind = op.get_bind()
-    inspector = reflection.Inspector.from_engine(bind)
-    return table_name in inspector.get_table_names()
+    return table_name in inspect(op.get_bind()).get_table_names()
 
 
 def upgrade() -> None:
@@ -34,7 +32,7 @@ def upgrade() -> None:
             sa.Column('doc_type', sa.String(length=50), default='manual'),
             sa.Column('forklift_model_id', sa.Integer(), sa.ForeignKey('forklift_models.id'), nullable=True),
             sa.Column('engine_model_id', sa.Integer(), sa.ForeignKey('engine_models.id'), nullable=True),
-            sa.Column('created_at', sa.DateTime(), default=sa.func.datetime('now')),
+            sa.Column('created_at', sa.DateTime(), default=sa.text('CURRENT_TIMESTAMP')),
         )
         op.create_index('ix_knowledge_documents_id', 'knowledge_documents', ['id'])
 
@@ -47,7 +45,7 @@ def upgrade() -> None:
             sa.Column('chunk_index', sa.Integer(), nullable=False),
             sa.Column('chunk_text', sa.Text(), nullable=False),
             sa.Column('embedding_id', sa.String(length=100), default=''),
-            sa.Column('created_at', sa.DateTime(), default=sa.func.datetime('now')),
+            sa.Column('created_at', sa.DateTime(), default=sa.text('CURRENT_TIMESTAMP')),
         )
         op.create_index('ix_knowledge_chunks_id', 'knowledge_chunks', ['id'])
 
@@ -75,20 +73,13 @@ def upgrade() -> None:
             sa.Column('causes_json', sa.JSON(), default=list),
             sa.Column('solutions_json', sa.JSON(), default=list),
             sa.Column('probability_json', sa.JSON(), default=dict),
-            sa.Column('created_at', sa.DateTime(), default=sa.func.datetime('now')),
+            sa.Column('created_at', sa.DateTime(), default=sa.text('CURRENT_TIMESTAMP')),
         )
         op.create_index('ix_fault_trees_id', 'fault_trees', ['id'])
 
 
 def downgrade() -> None:
-    op.drop_index('ix_fault_trees_id', table_name='fault_trees')
-    op.drop_table('fault_trees')
-
-    op.drop_index('ix_fault_codes_id', table_name='fault_codes')
-    op.drop_table('fault_codes')
-
-    op.drop_index('ix_knowledge_chunks_id', table_name='knowledge_chunks')
-    op.drop_table('knowledge_chunks')
-
-    op.drop_index('ix_knowledge_documents_id', table_name='knowledge_documents')
-    op.drop_table('knowledge_documents')
+    # 删表会自动连带删掉表上的索引，无需单独 drop_index（也不幂等）
+    for table in ('fault_trees', 'fault_codes', 'knowledge_chunks', 'knowledge_documents'):
+        if _table_exists(table):
+            op.drop_table(table)

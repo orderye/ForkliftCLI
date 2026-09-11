@@ -11,6 +11,7 @@ from app.core.vector_store import search_similar
 from app.core.error_handler import safe_api
 from app.core.security import get_current_user
 from app.core.database import get_db
+from app.core.rate_limit import check_daily_call
 from app.models.user import User
 
 router = APIRouter(prefix="/embed", tags=["多模态向量"])
@@ -33,6 +34,7 @@ def embed(
     req: EmbedRequest,
     current_user: User = Depends(get_current_user),
 ) -> EmbedResponse:
+    check_daily_call(current_user.id, "embed")  # 免费版每日 3 次
     if req.text:
         return EmbedResponse(vector=get_text_embedding(req.text))
     if req.image_base64:
@@ -46,6 +48,7 @@ def search(
     req: SearchRequest,
     current_user: User = Depends(get_current_user),
 ) -> SearchResponse:
+    check_daily_call(current_user.id, "embed_search")
     if req.query_text:
         vec = get_text_embedding(req.query_text)
     elif req.query_image_base64:

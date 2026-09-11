@@ -3,7 +3,10 @@
 POST /enterprise/bind_account     绑定账户（升级为 pro）
 POST /enterprise/unbind_account   解绑账户（降级为 free）
 GET  /enterprise/accounts         查看已绑定账户列表
+
+【未接线】main.py 未注册本路由，同前缀请求由 app/api/proxy.py 转发给 account-service（账户权威）。保留为本地实现的参考/回退，确认无调用方后可删除。
 """
+
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException

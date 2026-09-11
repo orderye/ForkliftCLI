@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.api.admin.common import client_ip, paginate, snapshot, write_audit
+from app.api.admin.common import client_ip, paginate, snapshot, validate_copyright, write_audit
 from app.core.admin_auth import require_admin, AdminPrincipal
 from app.core.database import get_db
 from app.core.error_handler import safe_api
@@ -69,6 +69,8 @@ def create_diagram(data: DiagramCreate, request: Request, db: Session = Depends(
         raise HTTPException(status_code=400, detail="关联车型不存在")
     if data.engine_model_id is not None and not db.query(EngineModel).filter(EngineModel.id == data.engine_model_id).first():
         raise HTTPException(status_code=400, detail="关联发动机型号不存在")
+    # 与 update_diagram 一致：创建同样要走版权合规校验（MASTER_PLAN 4.3）
+    validate_copyright(data.model_dump(), current=None)
 
     diagram = Diagram(**data.model_dump())
     db.add(diagram)

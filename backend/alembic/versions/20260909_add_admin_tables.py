@@ -39,25 +39,36 @@ def upgrade() -> None:
             sa.Column('plan', sa.String(length=20), default='free'),
             sa.Column('plan_expire_at', sa.DateTime(), nullable=True),
             sa.Column('status', sa.String(length=20), default='active'),
-            sa.Column('created_at', sa.DateTime(), default=sa.func.datetime('now')),
+            sa.Column('created_at', sa.DateTime(), default=sa.text('CURRENT_TIMESTAMP')),
         )
 
     # extend users（batch 模式兼容 SQLite；列已存在则跳过，兼容 create_all 先行的开发库）
+    # 注意：status / is_super_admin 已随账户体系拆分废弃——管理员权限来自
+    # account-service 的管理员令牌，本地 users 表不再存角色字段。
     new_columns = {
         'enterprise_id': sa.Column(
             'enterprise_id', sa.Integer(),
             sa.ForeignKey('enterprises.id', name='fk_users_enterprise_id'),
             nullable=True,
         ),
-        'status': sa.Column('status', sa.String(length=20), server_default='active'),
         'last_login_at': sa.Column('last_login_at', sa.DateTime(), nullable=True),
-        'is_super_admin': sa.Column('is_super_admin', sa.Boolean(), server_default=sa.text('false')),
     }
     missing = [col for name, col in new_columns.items() if not _has_column('users', name)]
     if missing:
         with op.batch_alter_table('users') as batch_op:
             for col in missing:
                 batch_op.add_column(col)
+
+    # 清掉历史遗留的角色列（旧开发库里存在，当前模型与代码都不再使用）
+    bind = op.get_bind()
+    stale = {'status', 'is_super_admin'}
+    for ix in inspect(bind).get_indexes('users'):
+        if set(ix['column_names']) & stale:
+            op.drop_index(ix['name'], table_name='users')
+    with op.batch_alter_table('users') as batch_op:
+        for col in sorted(stale):
+            if _has_column('users', col):
+                batch_op.drop_column(col)
 
     # admin_audit_logs
     if not _has_table('admin_audit_logs'):
@@ -67,7 +78,7 @@ def upgrade() -> None:
             sa.Column(
                 'admin_user_id', sa.Integer(),
                 sa.ForeignKey('users.id', name='fk_audit_logs_admin_user'),
-                nullable=False,
+                nullable=True,
             ),
             sa.Column('action', sa.String(length=50), nullable=False),
             sa.Column('target_type', sa.String(length=50), nullable=False),
@@ -75,14 +86,30 @@ def upgrade() -> None:
             sa.Column('before_json', sa.JSON(), nullable=True),
             sa.Column('after_json', sa.JSON(), nullable=True),
             sa.Column('ip', sa.String(length=45), default=''),
-            sa.Column('created_at', sa.DateTime(), default=sa.func.datetime('now')),
+            sa.Column('created_at', sa.DateTime(), default=sa.text('CURRENT_TIMESTAMP')),
         )
+
+    # 历史遗留库里 admin_audit_logs.admin_user_id 曾是 NOT NULL。该列必须可空——
+    # account-service 侧的管理员在本地 users 表没有投影，审计日志不能因此写不进去。
+    # SQLite 修改空约束需要重建表，batch 模式自动处理。
+    audit_cols = inspect(op.get_bind()).get_columns('admin_audit_logs') if _has_table('admin_audit_logs') else []
+    if any(c['name'] == 'admin_user_id' and c['nullable'] is False for c in audit_cols):
+        with op.batch_alter_table('admin_audit_logs') as batch_op:
+            batch_op.alter_column('admin_user_id', nullable=True)
 
 
 def downgrade() -> None:
-    op.drop_table('admin_audit_logs')
+    if _has_table('admin_audit_logs'):
+        op.drop_table('admin_audit_logs')
+    # 与订阅迁移同理：先删落在被删列上的索引，SQLite batch 重建才不会报错
+    # 只回退本迁移新增的列；status/is_super_admin 是废弃列，两个方向都不再恢复
+    dropped = {'last_login_at', 'enterprise_id'}
+    for ix in inspect(op.get_bind()).get_indexes('users'):
+        if set(ix['column_names']) & dropped:
+            op.drop_index(ix['name'], table_name='users')
     with op.batch_alter_table('users') as batch_op:
-        for col in ('is_super_admin', 'last_login_at', 'status', 'enterprise_id'):
+        for col in ('last_login_at', 'enterprise_id'):
             if _has_column('users', col):
                 batch_op.drop_column(col)
-    op.drop_table('enterprises')
+    if _has_table('enterprises'):
+        op.drop_table('enterprises')

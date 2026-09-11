@@ -7,7 +7,8 @@ class AdminAuditLogs(Base):
     __tablename__ = "admin_audit_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    admin_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # 可空：account-service 侧的管理员没有本地 users 投影，审计记录不能因缺少外键而写不进去
+    admin_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     action = Column(String(50), nullable=False)  # create/update/delete/export/import
     target_type = Column(String(50), nullable=False)  # user/enterprise/forklift/etc.
     target_id = Column(Integer, nullable=True)  # 关联表的ID，可能为空（如批量操作）

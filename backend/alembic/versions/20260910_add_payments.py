@@ -32,8 +32,8 @@ def upgrade() -> None:
             sa.Column("status", sa.String(length=10), default="pending"),
             sa.Column("transaction_id", sa.String(length=100), default=""),
             sa.Column("payment_params", sa.Text(), default=""),
-            sa.Column("created_at", sa.DateTime(), default=sa.func.datetime("now")),
-            sa.Column("updated_at", sa.DateTime(), default=sa.func.datetime("now")),
+            sa.Column("created_at", sa.DateTime(), default=sa.text('CURRENT_TIMESTAMP')),
+            sa.Column("updated_at", sa.DateTime(), default=sa.text('CURRENT_TIMESTAMP')),
         )
         with op.batch_alter_table("payments") as batch_op:
             batch_op.create_index("ix_payments_user_id", ["user_id"])
@@ -41,4 +41,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_table("payments")
+    if _has_table("payments"):
+        op.drop_table("payments")

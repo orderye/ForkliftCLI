@@ -18,12 +18,34 @@ admin_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/admin/auth/login", 
 
 
 class AdminPrincipal:
-    """极简管理员身份，供 require_admin/require_super_admin 使用。"""
+    """极简管理员身份，供 require_admin/require_super_admin 使用。
+
+    管理员是 account-service 里的独立主体，本地 users 表可能没有对应投影。
+    `id` 按 phone 反查本地投影，供审计日志的 admin_user_id 关联；查不到时返回 None
+    （外部管理员）。注意不能返回 0 —— admin_user_id 是外键，0 会违反约束。
+    """
+
     def __init__(self, phone: str, role: str, is_super_admin: bool, token: str = ""):
         self.phone = phone
         self.role = role
         self.is_super_admin = is_super_admin
         self.token = token
+        self._resolved = False
+        self._id: int | None = None
+
+    @property
+    def id(self) -> int | None:
+        if not self._resolved:
+            from app.core.database import SessionLocal
+
+            db = SessionLocal()
+            try:
+                row = db.query(User.id).filter(User.phone == self.phone).first()
+                self._id = row[0] if row else None
+            finally:
+                db.close()
+            self._resolved = True
+        return self._id
 
 
 def _decode_admin_token(token: str) -> dict:

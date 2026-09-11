@@ -160,14 +160,31 @@ def upsert_point(
     """插入或更新点"""
     get_memory_store().upsert_point(point_id, vector, payload, collection_name)
 
+def delete_by_document(document_id: int, collection_name: str = "forklift_multimodal") -> int:
+    """删除指定知识文档的全部向量点。"""
+    store = get_memory_store()
+    if collection_name not in store.points:
+        return 0
+    before = len(store.points[collection_name])
+    store.points[collection_name] = [
+        point for point in store.points[collection_name]
+        if point["payload"].get("doc_id") != document_id
+    ]
+    store.collections[collection_name]["vectors_count"] = len(store.points[collection_name])
+    return before - len(store.points[collection_name])
+
 def search_similar(
     vector: List[float],
     top_k: int = 5,
     collection_name: str = "forklift_multimodal",
     forklift_model_id: Optional[int] = None,
-    engine_model_id: Optional[int] = None
+    engine_model_id: Optional[int] = None,
 ) -> List[Dict]:
-    """搜索相似向量"""
+    """内存模式的相似检索入口，返回结构与 Qdrant 分支一致。
+
+    vector_store.py 从本模块转发该函数；此前只有类方法、没有模块级函数，
+    导致 `from app.core.memory_vector_store import search_similar` 失败，整个 app 无法导入。
+    """
     return get_memory_store().search_similar(
         vector, top_k, collection_name, forklift_model_id, engine_model_id
     )

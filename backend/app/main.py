@@ -12,8 +12,10 @@ from app.api.embed import router as embed_router
 from app.api.model3d import router as model3d_router, ar_router
 from app.api.admin import router as admin_router
 from app.api.knowledge import router as knowledge_router
+from app.api.manual import router as manual_router
 from app.api.proxy import routers as account_proxy_routers
 from app.core.error_handler import register_exception_handlers
+from app.core import dependencies_check
 
 settings = get_settings()
 
@@ -53,6 +55,7 @@ app.include_router(model3d_router, prefix="/api/v1")
 app.include_router(ar_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(knowledge_router, prefix="/api/v1")
+app.include_router(manual_router, prefix="/api/v1")
 for router in account_proxy_routers:
     app.include_router(router, prefix="/api/v1")
 
@@ -63,6 +66,7 @@ register_exception_handlers(app)
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
+    dependencies_check.log_dependency_states()
 
 
 @app.get("/")
@@ -76,4 +80,6 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    # status 保持恒为 ok：探活端点只表示进程活着，依赖状态放在 dependencies 里
+    # 单独暴露，编排层要降级就自己判这个字段，避免误把探活当业务健康。
+    return {"status": "ok", "dependencies": dependencies_check.dependency_states()}

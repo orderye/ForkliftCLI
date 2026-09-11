@@ -6,6 +6,7 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.schemas.ai import ChatRequest, ChatResponse, DiagnoseRequest, DiagnoseResponse
 from app.services.ai_service import AIService
+from app.core.rate_limit import check_daily_call
 
 router = APIRouter(prefix="/ai", tags=["AI维修助手"])
 
@@ -17,6 +18,7 @@ def chat(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    check_daily_call(current_user.id, "ai_chat")  # 免费版每日 3 次
     ai = AIService(db)
     result = ai.chat(
         message=data.message,
@@ -34,6 +36,7 @@ def diagnose(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    check_daily_call(current_user.id, "ai_diagnose")
     ai = AIService(db)
     result = ai.diagnose(
         symptom=data.symptom,
@@ -49,6 +52,7 @@ async def recognize_nameplate(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
 ):
+    check_daily_call(current_user.id, "ocr")
     from app.services.ocr_service import OCRService
     ocr = OCRService()
     contents = await file.read()

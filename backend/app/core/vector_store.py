@@ -2,7 +2,12 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 from app.config import get_settings
 from app.services.embedding_service import EMBED_DIM
-from app.core.memory_vector_store import ensure_collection as memory_ensure_collection, upsert_point as memory_upsert_point, search_similar as memory_search_similar
+from app.core.memory_vector_store import (
+    ensure_collection as memory_ensure_collection,
+    upsert_point as memory_upsert_point,
+    search_similar as memory_search_similar,
+    delete_by_document as memory_delete_by_document,
+)
 
 settings = get_settings()
 
@@ -83,6 +88,22 @@ def _build_filter(forklift_model_id: int | None = None, engine_model_id: int | N
     return Filter(must=must)
 
 
+def delete_by_document(document_id: int, client: QdrantClient | None = None) -> int:
+    """删除指定知识文档的全部向量点。"""
+    if USE_MEMORY_STORE:
+        return memory_delete_by_document(document_id, COLLECTION)
+    client = client or get_qdrant()
+    if not client.collection_exists(COLLECTION):
+        return 0
+    client.delete(
+        collection_name=COLLECTION,
+        points_selector=Filter(
+            must=[FieldCondition(key="doc_id", match=MatchValue(value=document_id))]
+        ),
+    )
+    return 1
+
+
 def search_similar(
     vector: list[float],
     top_k: int = 5,
@@ -92,7 +113,7 @@ def search_similar(
 ) -> list[dict]:
     if USE_MEMORY_STORE:
         return memory_search_similar(vector, top_k, COLLECTION, forklift_model_id, engine_model_id)
-    
+
     client = client or get_qdrant()
     if not client.collection_exists(COLLECTION):
         return []

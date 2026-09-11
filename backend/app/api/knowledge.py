@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.api.admin.common import client_ip, paginate, snapshot, write_audit
+from app.api.admin.common import client_ip, paginate, snapshot, validate_copyright, write_audit
 from app.core.admin_auth import require_admin
 from app.core.database import get_db
 from app.models.ai import KnowledgeDocument, KnowledgeChunk
@@ -67,6 +67,8 @@ def create_document(
 ):
     if data.doc_type not in VALID_DOC_TYPES:
         raise HTTPException(status_code=400, detail=f"非法文档类型：{data.doc_type}")
+    # 与结构图接口一致：创建同样要走版权合规校验（MASTER_PLAN 4.3）
+    validate_copyright(data.model_dump(), current=None)
     doc = KnowledgeDocument(**data.model_dump())
     db.add(doc)
     db.commit()
@@ -98,6 +100,7 @@ def update_document(
     fields = data.model_dump(exclude_unset=True)
     if fields.get("doc_type") is not None and fields["doc_type"] not in VALID_DOC_TYPES:
         raise HTTPException(status_code=400, detail=f"非法文档类型：{fields['doc_type']}")
+    validate_copyright(fields, current=doc)
 
     before = snapshot(doc)
     for key, value in fields.items():

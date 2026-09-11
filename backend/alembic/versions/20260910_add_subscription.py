@@ -37,7 +37,7 @@ def upgrade() -> None:
             sa.Column('status', sa.String(length=10), default='unused'),
             sa.Column('expire_at', sa.DateTime(), nullable=True),
             sa.Column('claimed_by', sa.Integer(), sa.ForeignKey('users.id'), nullable=True),
-            sa.Column('created_at', sa.DateTime(), default=sa.func.datetime('now')),
+            sa.Column('created_at', sa.DateTime(), default=sa.text('CURRENT_TIMESTAMP')),
         )
         with op.batch_alter_table('trial_cards') as batch_op:
             batch_op.create_index('ix_trial_cards_owner_uid', ['owner_uid'])
@@ -49,7 +49,7 @@ def upgrade() -> None:
             sa.Column('id', sa.Integer(), primary_key=True),
             sa.Column('enterprise_id', sa.Integer(), sa.ForeignKey('enterprises.id'), nullable=False),
             sa.Column('user_id', sa.Integer(), sa.ForeignKey('users.id'), nullable=False),
-            sa.Column('created_at', sa.DateTime(), default=sa.func.datetime('now')),
+            sa.Column('created_at', sa.DateTime(), default=sa.text('CURRENT_TIMESTAMP')),
             sa.UniqueConstraint('enterprise_id', 'user_id', name='uq_enterprise_account'),
         )
 
@@ -65,7 +65,7 @@ def upgrade() -> None:
             sa.Column('expires_before', sa.DateTime(), nullable=True),
             sa.Column('expires_after', sa.DateTime(), nullable=True),
             sa.Column('note', sa.Text(), default=''),
-            sa.Column('created_at', sa.DateTime(), default=sa.func.datetime('now')),
+            sa.Column('created_at', sa.DateTime(), default=sa.text('CURRENT_TIMESTAMP')),
         )
 
     # extend users
@@ -84,10 +84,19 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # SQLite batch 模式重建 users 表时会复制现有索引；落在被删列上的索引必须先删，
+    # 否则重建阶段会引用已不存在的列而报错。
+    bind = op.get_bind()
+    dropped = {'subscription_level', 'subscription_expires_at', 'device_token'}
+    for ix in inspect(bind).get_indexes('users'):
+        if set(ix['column_names']) & dropped:
+            op.drop_index(ix['name'], table_name='users')
+
     with op.batch_alter_table('users') as batch_op:
         for col in ('device_token', 'subscription_expires_at', 'subscription_level'):
             if _has_column('users', col):
                 batch_op.drop_column(col)
-    op.drop_table('subscription_logs')
-    op.drop_table('enterprise_accounts')
-    op.drop_table('trial_cards')
+
+    for table in ('subscription_logs', 'enterprise_accounts', 'trial_cards'):
+        if _has_table(table):
+            op.drop_table(table)

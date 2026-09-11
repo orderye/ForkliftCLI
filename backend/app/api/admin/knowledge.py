@@ -63,6 +63,8 @@ def list_documents(
 def create_document(data: KnowledgeDocCreate, request: Request, db: Session = Depends(get_db), admin: AdminPrincipal = Depends(require_admin)):
     if data.doc_type not in VALID_DOC_TYPES:
         raise HTTPException(status_code=400, detail=f"非法文档类型：{data.doc_type}")
+    # 与结构图一致：创建同样要走版权合规校验（MASTER_PLAN 4.3）
+    validate_copyright(data.model_dump(), current=None)
     doc = KnowledgeDocument(**data.model_dump())
     db.add(doc)
     db.commit()
@@ -82,6 +84,7 @@ def update_document(doc_id: int, data: KnowledgeDocUpdate, request: Request, db:
     fields = data.model_dump(exclude_unset=True)
     if fields.get("doc_type") is not None and fields["doc_type"] not in VALID_DOC_TYPES:
         raise HTTPException(status_code=400, detail=f"非法文档类型：{fields['doc_type']}")
+    validate_copyright(fields, current=doc)
 
     before = snapshot(doc)
     for key, value in fields.items():

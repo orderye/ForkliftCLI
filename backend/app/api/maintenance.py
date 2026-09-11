@@ -15,6 +15,23 @@ from app.schemas.maintenance import (
 router = APIRouter(prefix="/my-forklifts", tags=["我的叉车"])
 
 
+def _to_out(db: Session, item: UserForklift) -> UserForkliftOut:
+    """统一序列化：列表/详情/新增/编辑返回同一结构。
+
+    此前只有 list 接口补齐 model_name/brand_name，新增与详情返回空串，
+    客户端拿不到车型名只能再查一次。
+    """
+    out = UserForkliftOut.model_validate(item)
+    if item.forklift_model_id:
+        from app.models.forklift import ForkliftModel
+
+        model = db.query(ForkliftModel).filter(ForkliftModel.id == item.forklift_model_id).first()
+        if model:
+            out.model_name = model.name
+            out.brand_name = model.series.brand.name if model.series else ""
+    return out
+
+
 @router.get("", response_model=list[UserForkliftOut])
 @safe_api
 def list_my_forklifts(
@@ -26,17 +43,7 @@ def list_my_forklifts(
         .filter(UserForklift.user_id == current_user.id)
         .all()
     )
-    result = []
-    for item in items:
-        out = UserForkliftOut.model_validate(item)
-        if item.forklift_model_id:
-            from app.models.forklift import ForkliftModel
-            model = db.query(ForkliftModel).filter(ForkliftModel.id == item.forklift_model_id).first()
-            if model:
-                out.model_name = model.name
-                out.brand_name = model.series.brand.name if model.series else ""
-        result.append(out)
-    return result
+    return [_to_out(db, item) for item in items]
 
 
 @router.post("", response_model=UserForkliftOut)
@@ -60,7 +67,7 @@ def add_forklift(
     db.add(forklift)
     db.commit()
     db.refresh(forklift)
-    return UserForkliftOut.model_validate(forklift)
+    return _to_out(db, forklift)
 
 
 @router.get("/{forklift_id}", response_model=UserForkliftOut)
@@ -77,7 +84,7 @@ def get_forklift(
     )
     if not item:
         raise HTTPException(status_code=404, detail="叉车档案不存在")
-    return UserForkliftOut.model_validate(item)
+    return _to_out(db, item)
 
 
 @router.put("/{forklift_id}", response_model=UserForkliftOut)
@@ -100,7 +107,7 @@ def update_forklift(
         setattr(item, field, value)
     db.commit()
     db.refresh(item)
-    return UserForkliftOut.model_validate(item)
+    return _to_out(db, item)
 
 
 @router.delete("/{forklift_id}")

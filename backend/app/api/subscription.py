@@ -4,7 +4,10 @@ GET  /subscription/me       查询当前订阅状态
 POST /subscription/activate 激活订阅（支付完成后调用）
 POST /subscription/cancel   取消自动续订
 POST /subscription/renew    手动续费
+
+【未接线】main.py 未注册本路由，同前缀请求由 app/api/proxy.py 转发给 account-service（账户权威）。保留为本地实现的参考/回退，确认无调用方后可删除。
 """
+
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException

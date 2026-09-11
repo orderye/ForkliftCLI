@@ -12,6 +12,10 @@ class KnowledgeDocument(CopyrightMixin, Base):
     content = Column(Text, default="")
     source = Column(String(500), default="")
     doc_type = Column(String(50), default="manual")  # manual | fault | case | parameter
+    category = Column(String(200), default="")
+    file_type = Column(String(30), default="markdown")
+    summary = Column(Text, default="")
+    page_count = Column(Integer, default=0)
     forklift_model_id = Column(Integer, ForeignKey("forklift_models.id"), nullable=True)
     engine_model_id = Column(Integer, ForeignKey("engine_models.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -25,6 +29,9 @@ class KnowledgeChunk(Base):
     chunk_index = Column(Integer, nullable=False)
     chunk_text = Column(Text, nullable=False)
     embedding_id = Column(String(100), default="")
+    page_number = Column(Integer, nullable=True)
+    section_title = Column(String(500), default="")
+    source_locator = Column(String(500), default="")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 

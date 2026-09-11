@@ -7,7 +7,10 @@ GET  /payment/orders  查询当前用户订单历史
 说明：
 - 当前为通用 stub：platform 区分 ios/android/wechat/alipay，
   真实接入时只需在 create / notify 内实现对应 SDK 调用与签名校验。
+
+【未接线】main.py 未注册本路由，同前缀请求由 app/api/proxy.py 转发给 account-service（账户权威）。保留为本地实现的参考/回退，确认无调用方后可删除。
 """
+
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException

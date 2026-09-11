@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -6,11 +8,31 @@ from app.core.security import get_current_user
 from app.core.storage import get_storage_client
 from app.models.user import User
 from app.models.model3d import Model3D, Model3DPart, Model3DAnimation, ArModelConfig
+from app.models.copyright_mixin import license_active_condition
 from app.schemas.model3d import Model3DOut, Model3DPartOut, Model3DAnimationOut, ArConfigOut
 from app.schemas.model3d import Model3DCreate
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/3d", tags=["3D模型"])
+
+
+def _validate_model_bytes(data: bytes, fmt: str) -> None:
+    """用文件内容校验格式声明。format 由客户端提交，只靠白名单容易被改后缀绕过。"""
+    if fmt == "glb":
+        # GLB 容器固定以 ASCII 魔数 "glTF" 开头
+        if len(data) < 12 or data[:4] != b"glTF":
+            raise HTTPException(400, "文件内容不是 GLB 格式")
+        return
+    if fmt == "gltf":
+        try:
+            payload = json.loads(data.decode("utf-8-sig"))
+        except Exception:
+            raise HTTPException(400, "文件内容不是 glTF JSON 格式")
+        if not isinstance(payload, dict) or "asset" not in payload:
+            raise HTTPException(400, "文件内容不是合法的 glTF 描述（缺少 asset 段）")
+        return
+    raise HTTPException(400, f"不支持格式 {fmt}，仅接受 glb / gltf")
+
 
 def _mime_of_format(fmt: str) -> str:
     """返回 .glb / .gltf 对应的 Content-Type。"""
@@ -68,7 +90,10 @@ def get_forklift_3d(forklift_model_id: int, db: Session = Depends(get_db), _: Us
     """根据叉车车型ID获取3D模型（返回最新版本）"""
     model = (
         db.query(Model3D)
-        .filter(Model3D.forklift_model_id == forklift_model_id)
+        .filter(
+            Model3D.forklift_model_id == forklift_model_id,
+            license_active_condition(Model3D.license_expire),  # 与列表接口一致，授权过期的不下发
+        )
         .order_by(Model3D.version.desc())
         .first()
     )
@@ -132,9 +157,9 @@ def list_ar_models(db: Session = Depends(get_db), _: User = Depends(get_current_
 @safe_api
 async def upload_3d_model(
     file: UploadFile = File(...),
-    forklift_model_id: int | None = None,
+    forklift_model_id: int | None = Form(None),
     name: str = Form(...),
-    description: str = "",
+    description: str = Form(""),
     format: str = Form("glb"),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -151,6 +176,8 @@ async def upload_3d_model(
     data = await file.read()
     if not data:
         raise HTTPException(400, "文件为空")
+
+    _validate_model_bytes(data, format.lower())
 
     storage = get_storage_client()
     content_hash = storage.compute_hash(data)
@@ -225,6 +252,8 @@ async def release_3d_model(
     data = await file.read()
     if not data:
         raise HTTPException(400, "文件为空")
+
+    _validate_model_bytes(data, format.lower())
 
     storage = get_storage_client()
     content_hash = storage.compute_hash(data)

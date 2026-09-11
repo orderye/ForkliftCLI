@@ -2,7 +2,10 @@
 
 GET  /trial/my-cards  查看我的体验卡
 POST /trial/claim     免费用户领取体验卡（输入手机号）
+
+【未接线】main.py 未注册本路由，同前缀请求由 app/api/proxy.py 转发给 account-service（账户权威）。保留为本地实现的参考/回退，确认无调用方后可删除。
 """
+
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
