@@ -10,6 +10,9 @@ from app.api.maintenance import router as maintenance_router
 from app.api.ai import router as ai_router
 from app.api.embed import router as embed_router
 from app.api.model3d import router as model3d_router, ar_router
+from app.api.admin import router as admin_router
+from app.api.knowledge import router as knowledge_router
+from app.api.proxy import routers as account_proxy_routers
 from app.core.error_handler import register_exception_handlers
 
 settings = get_settings()
@@ -48,6 +51,10 @@ app.include_router(ai_router, prefix="/api/v1")
 app.include_router(embed_router, prefix="/api/v1")
 app.include_router(model3d_router, prefix="/api/v1")
 app.include_router(ar_router, prefix="/api/v1")
+app.include_router(admin_router, prefix="/api/v1")
+app.include_router(knowledge_router, prefix="/api/v1")
+for router in account_proxy_routers:
+    app.include_router(router, prefix="/api/v1")
 
 # 全局异常处理
 register_exception_handlers(app)

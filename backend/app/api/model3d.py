@@ -23,7 +23,12 @@ def _mime_of_format(fmt: str) -> str:
 @router.get("/models", response_model=list[Model3DOut])
 @safe_api
 def list_models(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return db.query(Model3D).order_by(Model3D.created_at.desc()).all()
+    return (
+        db.query(Model3D)
+        .filter(license_active_condition(Model3D.license_expire))  # 授权过期的模型不下发
+        .order_by(Model3D.created_at.desc())
+        .all()
+    )
 
 
 @router.get("/models/{model_id}", response_model=Model3DOut)
@@ -32,6 +37,8 @@ def get_model(model_id: int, db: Session = Depends(get_db), _: User = Depends(ge
     model = db.query(Model3D).filter(Model3D.id == model_id).first()
     if not model:
         raise HTTPException(status_code=404, detail="3D模型不存在")
+    if model.license_expired:
+        raise HTTPException(status_code=404, detail="该3D模型授权已到期")
     return model
 
 
@@ -190,6 +197,7 @@ async def upload_3d_model(
         mime_type=mime,
         uploaded_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
+        license_type="user_uploaded",  # 用户上传，责任归上传者；管理员可在后台修正
     )
     db.add(model)
     db.commit()

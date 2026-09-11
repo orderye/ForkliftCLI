@@ -1,0 +1,441 @@
+{
+  "nameplate_ocr": {
+    "passed": 10,
+    "total": 10,
+    "rate": 100.0,
+    "target_met": true,
+    "details": [
+      {
+        "id": 1,
+        "status": "PASS",
+        "expected_brand": "TOYOTA",
+        "actual_brand": "TOYOTA",
+        "expected_model": "8FG30",
+        "actual_model": "8FG30",
+        "expected_engine": "4Y",
+        "actual_engine": "4Y"
+      },
+      {
+        "id": 2,
+        "status": "PASS",
+        "expected_brand": "TOYOTA",
+        "actual_brand": "TOYOTA",
+        "expected_model": "8FG25",
+        "actual_model": "8FG25",
+        "expected_engine": "1DZ",
+        "actual_engine": "1DZ"
+      },
+      {
+        "id": 3,
+        "status": "PASS",
+        "expected_brand": "HELI",
+        "actual_brand": "合力",
+        "expected_model": "H30",
+        "actual_model": "H30",
+        "expected_engine": "",
+        "actual_engine": ""
+      },
+      {
+        "id": 4,
+        "status": "PASS",
+        "expected_brand": "HELI",
+        "actual_brand": "合力",
+        "expected_model": "CPD30",
+        "actual_model": "CPD30",
+        "expected_engine": "",
+        "actual_engine": ""
+      },
+      {
+        "id": 5,
+        "status": "PASS",
+        "expected_brand": "HANGCHA",
+        "actual_brand": "杭叉",
+        "expected_model": "CPCD30",
+        "actual_model": "CPCD30",
+        "expected_engine": "4JG2",
+        "actual_engine": "4JG2"
+      },
+      {
+        "id": 6,
+        "status": "PASS",
+        "expected_brand": "HANGCHA",
+        "actual_brand": "杭叉",
+        "expected_model": "A25",
+        "actual_model": "A25",
+        "expected_engine": "",
+        "actual_engine": ""
+      },
+      {
+        "id": 7,
+        "status": "PASS",
+        "expected_brand": "LINDE",
+        "actual_brand": "林德",
+        "expected_model": "H30",
+        "actual_model": "H30",
+        "expected_engine": "",
+        "actual_engine": ""
+      },
+      {
+        "id": 8,
+        "status": "PASS",
+        "expected_brand": "LINDE",
+        "actual_brand": "林德",
+        "expected_model": "E20",
+        "actual_model": "E20",
+        "expected_engine": "",
+        "actual_engine": ""
+      },
+      {
+        "id": 9,
+        "status": "PASS",
+        "expected_brand": "TOYOTA",
+        "actual_brand": "丰田",
+        "expected_model": "8FBE15",
+        "actual_model": "8FBE15",
+        "expected_engine": "",
+        "actual_engine": ""
+      },
+      {
+        "id": 10,
+        "status": "PASS",
+        "expected_brand": "HELI",
+        "actual_brand": "合力",
+        "expected_model": "H25",
+        "actual_model": "H25",
+        "expected_engine": "4JG2",
+        "actual_engine": "4JG2"
+      }
+    ]
+  },
+  "model_match": {
+    "passed": 20,
+    "total": 20,
+    "rate": 100.0,
+    "target_met": true,
+    "details": [
+      {
+        "id": "8FG30",
+        "status": "PASS",
+        "input_brand": "TOYOTA",
+        "input_model": "8FG30",
+        "expected_id": 1,
+        "actual_id": 1
+      },
+      {
+        "id": "8FG25",
+        "status": "PASS",
+        "input_brand": "TOYOTA",
+        "input_model": "8FG25",
+        "expected_id": 2,
+        "actual_id": 2
+      },
+      {
+        "id": "8FG35",
+        "status": "PASS",
+        "input_brand": "TOYOTA",
+        "input_model": "8FG35",
+        "expected_id": 3,
+        "actual_id": 3
+      },
+      {
+        "id": "8FBN25",
+        "status": "PASS",
+        "input_brand": "TOYOTA",
+        "input_model": "8FBN25",
+        "expected_id": 4,
+        "actual_id": 4
+      },
+      {
+        "id": "8FBE15",
+        "status": "PASS",
+        "input_brand": "TOYOTA",
+        "input_model": "8FBE15",
+        "expected_id": 5,
+        "actual_id": 5
+      },
+      {
+        "id": "H30",
+        "status": "PASS",
+        "input_brand": "HELI",
+        "input_model": "H30",
+        "expected_id": 6,
+        "actual_id": 6
+      },
+      {
+        "id": "H25",
+        "status": "PASS",
+        "input_brand": "HELI",
+        "input_model": "H25",
+        "expected_id": 7,
+        "actual_id": 7
+      },
+      {
+        "id": "H20",
+        "status": "PASS",
+        "input_brand": "HELI",
+        "input_model": "H20",
+        "expected_id": 8,
+        "actual_id": 8
+      },
+      {
+        "id": "CPD30",
+        "status": "PASS",
+        "input_brand": "HELI",
+        "input_model": "CPD30",
+        "expected_id": 9,
+        "actual_id": 9
+      },
+      {
+        "id": "CPD25",
+        "status": "PASS",
+        "input_brand": "HELI",
+        "input_model": "CPD25",
+        "expected_id": 10,
+        "actual_id": 10
+      },
+      {
+        "id": "A30",
+        "status": "PASS",
+        "input_brand": "HANGCHA",
+        "input_model": "A30",
+        "expected_id": 11,
+        "actual_id": 11
+      },
+      {
+        "id": "A25",
+        "status": "PASS",
+        "input_brand": "HANGCHA",
+        "input_model": "A25",
+        "expected_id": 12,
+        "actual_id": 12
+      },
+      {
+        "id": "A20",
+        "status": "PASS",
+        "input_brand": "HANGCHA",
+        "input_model": "A20",
+        "expected_id": 13,
+        "actual_id": 13
+      },
+      {
+        "id": "CPCD30",
+        "status": "PASS",
+        "input_brand": "HANGCHA",
+        "input_model": "CPCD30",
+        "expected_id": 14,
+        "actual_id": 14
+      },
+      {
+        "id": "CPCD25",
+        "status": "PASS",
+        "input_brand": "HANGCHA",
+        "input_model": "CPCD25",
+        "expected_id": 15,
+        "actual_id": 15
+      },
+      {
+        "id": "H30",
+        "status": "PASS",
+        "input_brand": "LINDE",
+        "input_model": "H30",
+        "expected_id": 16,
+        "actual_id": 16
+      },
+      {
+        "id": "H25",
+        "status": "PASS",
+        "input_brand": "LINDE",
+        "input_model": "H25",
+        "expected_id": 17,
+        "actual_id": 17
+      },
+      {
+        "id": "E20",
+        "status": "PASS",
+        "input_brand": "LINDE",
+        "input_model": "E20",
+        "expected_id": 18,
+        "actual_id": 18
+      },
+      {
+        "id": "E16",
+        "status": "PASS",
+        "input_brand": "LINDE",
+        "input_model": "E16",
+        "expected_id": 19,
+        "actual_id": 19
+      },
+      {
+        "id": "R20",
+        "status": "PASS",
+        "input_brand": "LINDE",
+        "input_model": "R20",
+        "expected_id": 20,
+        "actual_id": 20
+      }
+    ]
+  },
+  "manual_match": {
+    "passed": 20,
+    "total": 20,
+    "rate": 100.0,
+    "target_met": true,
+    "details": [
+      {
+        "input": "TOYOTA 8FG30",
+        "matched": 1,
+        "status": "PASS"
+      },
+      {
+        "input": "TOYOTA 8FG25",
+        "matched": 2,
+        "status": "PASS"
+      },
+      {
+        "input": "TOYOTA 8FG35",
+        "matched": 3,
+        "status": "PASS"
+      },
+      {
+        "input": "TOYOTA 8FBN25",
+        "matched": 4,
+        "status": "PASS"
+      },
+      {
+        "input": "TOYOTA 8FBE15",
+        "matched": 5,
+        "status": "PASS"
+      },
+      {
+        "input": "HELI H30",
+        "matched": 6,
+        "status": "PASS"
+      },
+      {
+        "input": "HELI H25",
+        "matched": 7,
+        "status": "PASS"
+      },
+      {
+        "input": "HELI H20",
+        "matched": 8,
+        "status": "PASS"
+      },
+      {
+        "input": "HELI CPD30",
+        "matched": 9,
+        "status": "PASS"
+      },
+      {
+        "input": "HELI CPD25",
+        "matched": 10,
+        "status": "PASS"
+      },
+      {
+        "input": "HANGCHA A30",
+        "matched": 11,
+        "status": "PASS"
+      },
+      {
+        "input": "HANGCHA A25",
+        "matched": 12,
+        "status": "PASS"
+      },
+      {
+        "input": "HANGCHA A20",
+        "matched": 13,
+        "status": "PASS"
+      },
+      {
+        "input": "HANGCHA CPCD30",
+        "matched": 14,
+        "status": "PASS"
+      },
+      {
+        "input": "HANGCHA CPCD25",
+        "matched": 15,
+        "status": "PASS"
+      },
+      {
+        "input": "LINDE H30",
+        "matched": 16,
+        "status": "PASS"
+      },
+      {
+        "input": "LINDE H25",
+        "matched": 17,
+        "status": "PASS"
+      },
+      {
+        "input": "LINDE E20",
+        "matched": 18,
+        "status": "PASS"
+      },
+      {
+        "input": "LINDE E16",
+        "matched": 19,
+        "status": "PASS"
+      },
+      {
+        "input": "LINDE R20",
+        "matched": 20,
+        "status": "PASS"
+      }
+    ]
+  },
+  "ai_rag": {
+    "passed": 3,
+    "total": 3,
+    "rate": 100.0,
+    "target_met": true,
+    "details": [
+      {
+        "question": "发动机无法启动，仪表盘无任何指示灯亮起，是什么原因？",
+        "status": "PASS",
+        "reply_length": 334,
+        "has_reference": true,
+        "reply_preview": "根据您描述的症状\"发动机无法启动，仪表盘无任何指示灯亮起\"，这表明叉车电气系统完全没有电力供应。\n\n**可能原因：**\n1. 主电源开关未接通\n2. 蓄电池完全没电或严重亏电\n3. 电源线路断开或保险丝熔断\n4. 启动继电器故障\n\n**建议"
+      },
+      {
+        "question": "液压系统压力低，举升缓慢怎么解决？",
+        "status": "PASS",
+        "reply_length": 582,
+        "has_reference": true,
+        "reply_preview": "# 液压系统压力低，举升缓慢的解决方案\n\n根据您描述的液压系统压力低导致举升缓慢的问题，我建议按以下步骤进行检查和维修：\n\n## 检查步骤\n\n1. **检查液压油油位**\n   - 确保液压油油位在规定刻度范围内\n   - 油位过低会导致系"
+      },
+      {
+        "question": "制动系统磨损了怎么处理？",
+        "status": "PASS",
+        "reply_length": 566,
+        "has_reference": true,
+        "reply_preview": "# 制动系统磨损处理指南\n\n针对丰田8FG30叉车制动系统磨损问题，以下是专业处理建议：\n\n## 检查步骤\n\n1. **初步检查**\n   - 检查刹车踏板行程是否异常增大\n   - 观察制动距离是否明显延长\n   - 注意是否有制动异响或"
+      }
+    ]
+  },
+  "ai_no_hallucination": {
+    "passed": 3,
+    "total": 3,
+    "rate": 100.0,
+    "target_met": true,
+    "details": [
+      {
+        "question": "叉车 XYZ-9999 的最大起升速度是多少？",
+        "status": "PASS",
+        "is_honest": true,
+        "reply_preview": "抱歉，我没有关于叉车 XYZ-9999 的信息。我的知识库中只包含丰田 8FG30 型叉车的相关资料。\n\n如果您需要了解特定叉车的技术参数，建议您查阅该叉车的用户手册或联系制造商获取准确信息。不同型号的叉车其起升速度会有所差异，这取决于设计、负载能力和液压系统配置等因素。"
+      },
+      {
+        "question": "请问 8FG30 的核反应堆功率是多少千瓦？",
+        "status": "PASS",
+        "is_honest": true,
+        "reply_preview": "我没有关于丰田8FG30叉车核反应堆的信息，因为这款叉车实际上是一台柴油动力叉车，不使用核反应堆作为动力源。\n\n根据提供的信息，丰田8FG30的燃料类型是柴油(diesel)，这是标准的内燃机燃料。核反应堆技术通常用于发电站、船舶或潜艇等大型设施，不会用于工业叉车。\n\n如果您对叉车的动力系统或其他技"
+      },
+      {
+        "question": "8FG30 的量子推进器规格是什么？",
+        "status": "PASS",
+        "is_honest": true,
+        "reply_preview": "抱歉，我的知识库中没有关于丰田8FG30叉车\"量子推进器\"的任何信息。根据现有资料，8FG30是一款柴油叉车，使用传统内燃机作为动力源。\n\n\"量子推进器\"这一术语在叉车技术领域并不常见，可能是对特定部件的误解或误称。如果您指的是发动机、传动系统或其他特定部件，请提供更多细节，我将尽力为您提供相关信息"
+      }
+    ]
+  }
+}

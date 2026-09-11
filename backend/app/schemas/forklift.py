@@ -132,6 +132,9 @@ class DiagramOut(BaseModel):
     system_type: str
     title: str
     image_url: str
+    source: str = ""
+    copyright_owner: str = ""
+    license_type: str = "self_owned"
 
     class Config:
         from_attributes = True

@@ -2,9 +2,10 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Float, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+from app.models.copyright_mixin import CopyrightMixin
 
 
-class Model3D(Base):
+class Model3D(CopyrightMixin, Base):
     """3D叉车模型"""
     __tablename__ = "model_3d"
 
@@ -14,6 +15,7 @@ class Model3D(Base):
     description = Column(Text, default="")
     file_url = Column(String(500), nullable=False)  # 下载入口，由存储后端生成
     thumbnail_url = Column(String(500), default="")
+    source = Column(String(500), default="")  # 资料来源（版权合规）
     file_size_mb = Column(Float, default=0)
     format = Column(String(20), default="glb")  # glb | gltf
 

@@ -2,9 +2,10 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+from app.models.copyright_mixin import CopyrightMixin
 
 
-class Diagram(Base):
+class Diagram(CopyrightMixin, Base):
     __tablename__ = "diagrams"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -15,6 +16,7 @@ class Diagram(Base):
     title = Column(String(200), default="")
     image_url = Column(String(500), nullable=False)
     thumbnail_url = Column(String(500), default="")
+    source = Column(String(500), default="")  # 资料来源（版权合规）
     metadata_json = Column(JSON, default=dict)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

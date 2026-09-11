@@ -91,9 +91,9 @@ class OCRService:
                     fields["brand"] = brand
                     break
 
-            # 型号识别 - 匹配常见叉车型号格式
+            # 型号识别 - 匹配常见叉车型号格式（如 8FG30, CPCD30, H30, A25, E16）
             model_match = re.search(
-                r'([A-Z]{1,3}\d{2,4}[A-Z]?\d{0,3})', line
+                r'((?:\d{1,2})?[A-Z]{1,4}\d{2,4}(?:[A-Z]\d{0,3})?)', line
             )
             if model_match and not fields["model"]:
                 fields["model"] = model_match.group(1)
@@ -133,9 +133,14 @@ class OCRService:
             return None
 
         from app.models.forklift import ForkliftBrand, ForkliftSeries, ForkliftModel
+        from sqlalchemy import or_
 
+        brand_val = fields["brand"]
         brand = db.query(ForkliftBrand).filter(
-            ForkliftBrand.name.ilike(f"%{fields['brand']}%")
+            or_(
+                ForkliftBrand.name.ilike(f"%{brand_val}%"),
+                ForkliftBrand.name_en.ilike(f"%{brand_val}%"),
+            )
         ).first()
 
         if not brand:

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.models.forklift import ForkliftModel
 from app.models.ai import KnowledgeDocument, KnowledgeChunk, FaultTree
+from app.models.copyright_mixin import license_active_condition, naive_utc_now
 from app.services.embedding_service import get_text_embedding
 from app.core.vector_store import search_similar, ensure_collection
 
@@ -18,6 +19,7 @@ def _retrieve_context(
     forklift_model_id: int | None = None,
     engine_model_id: int | None = None,
     top_k: int = 5,
+    db: Session | None = None,
 ) -> str:
     """用 WeMM 向量化查询，从 Qdrant 召回相关资料片段。"""
     try:
@@ -31,13 +33,32 @@ def _retrieve_context(
         )
         if not hits:
             return ""
+        # 过滤授权已过期的文档（payload.doc_id → knowledge_documents.license_expire）
+        if db is not None:
+            doc_ids = {h.get("payload", {}).get("doc_id") for h in hits}
+            doc_ids.discard(None)
+            if doc_ids:
+                expired_ids = {
+                    row.id
+                    for row in db.query(KnowledgeDocument.id)
+                    .filter(
+                        KnowledgeDocument.id.in_(doc_ids),
+                        KnowledgeDocument.license_expire.isnot(None),
+                        KnowledgeDocument.license_expire < naive_utc_now(),
+                    )
+                    .all()
+                }
+                hits = [h for h in hits if h.get("payload", {}).get("doc_id") not in expired_ids]
+        if not hits:
+            return ""
         lines = []
         for h in hits:
             p = h.get("payload", {})
             title = p.get("title", "")
             text = p.get("text", "")
             url = p.get("url", "")
-            lines.append(f"- {title}: {text[:300]}{' (' + url + ')' if url else ''}")
+            cite = f" [来源: {url}]" if url else ""
+            lines.append(f"- {title}: {text[:300]}{cite}")
         return "\n".join(lines)
     except Exception:
         logger.exception("WeMM vector retrieval failed (query=%s)", query[:80])
@@ -105,15 +126,25 @@ class AIService:
         engine_model_id: int | None = None,
         limit: int = 5,
     ) -> str:
-        q = self.db.query(KnowledgeChunk).join(KnowledgeDocument)
+        q = (
+            self.db.query(KnowledgeChunk, KnowledgeDocument)
+            .join(KnowledgeDocument, KnowledgeChunk.document_id == KnowledgeDocument.id)
+            .filter(license_active_condition(KnowledgeDocument.license_expire))  # 授权过期文档不参与召回
+        )
         if forklift_model_id:
             q = q.filter(KnowledgeDocument.forklift_model_id == forklift_model_id)
         if engine_model_id:
             q = q.filter(KnowledgeDocument.engine_model_id == engine_model_id)
-        chunks = q.limit(limit).all()
-        if not chunks:
+        rows = q.limit(limit).all()
+        if not rows:
             return ""
-        return "\n\n相关维修资料:\n" + "".join(f"- {c.chunk_text[:500]}\n" for c in chunks)
+        parts = []
+        for chunk, doc in rows:
+            cite = doc.title or ""
+            if doc.source:
+                cite += f"（来源: {doc.source}）"
+            parts.append(f"- {cite}: {chunk.chunk_text[:500]}\n")
+        return "\n\n相关维修资料:\n" + "".join(parts)
 
     # ── 故障树检索 ────────────────────────────────────────────
     def _get_fault_trees(
@@ -156,7 +187,7 @@ class AIService:
         prompt += self._get_knowledge_chunks(forklift_model_id, engine_model_id)
         prompt += self._get_fault_trees(forklift_model_id, engine_model_id)
 
-        ctx = _retrieve_context(query, forklift_model_id, engine_model_id)
+        ctx = _retrieve_context(query, forklift_model_id, engine_model_id, db=self.db)
         if ctx:
             prompt += "\n\n检索到的相关资料:\n" + ctx
 

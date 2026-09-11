@@ -13,9 +13,13 @@ from app.models.ai import (
     KnowledgeDocument, KnowledgeChunk, FaultCode, FaultTree,
 )
 from app.models.model3d import Model3D, Model3DPart, Model3DAnimation, ArModelConfig
+from app.models.enterprise import Enterprise
+from app.models.admin_audit_logs import AdminAuditLogs
 
 __all__ = [
     "User",
+    "Enterprise",
+    "AdminAuditLogs",
     "ForkliftBrand", "ForkliftSeries", "ForkliftModel",
     "ForkliftSpecification", "ForkliftSystem", "Component",
     "EngineBrand", "EngineModel",

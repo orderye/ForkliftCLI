@@ -4,6 +4,7 @@ from app.core.database import get_db
 from app.core.error_handler import safe_api
 from app.models.part import Part, PartAlternative
 from app.models.diagram import Diagram, DiagramHotspot
+from app.models.copyright_mixin import license_active_condition
 from app.schemas.part import PartOut, PartDetail, PartAltOut, PartSearchResult
 from app.schemas.forklift import DiagramOut, HotspotOut
 

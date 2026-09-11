@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, Field
 
 
@@ -24,7 +25,10 @@ class UserOut(BaseModel):
     email: str | None = None
     nickname: str
     avatar: str
-    role: str
+    subscription_level: str = "free"
+    subscription_expires_at: datetime | None = None
+    is_active: bool = True
+    device_token: str = ""
 
     class Config:
         from_attributes = True

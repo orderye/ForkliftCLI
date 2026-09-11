@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Float, Text, DateTime, ForeignKey, JSON
 from app.core.database import Base
+from app.models.copyright_mixin import CopyrightMixin
 
 
-class KnowledgeDocument(Base):
+class KnowledgeDocument(CopyrightMixin, Base):
     __tablename__ = "knowledge_documents"
 
     id = Column(Integer, primary_key=True, index=True)

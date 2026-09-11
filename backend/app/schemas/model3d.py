@@ -19,6 +19,9 @@ class Model3DOut(BaseModel):
     mime_type: str | None = None
     uploaded_at: datetime | None = None
     updated_at: datetime | None = None
+    source: str = ""
+    copyright_owner: str = ""
+    license_type: str = "self_owned"
 
     class Config:
         from_attributes = True

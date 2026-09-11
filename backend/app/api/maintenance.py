@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.error_handler import safe_api
 from app.core.security import get_current_user
+from app.core.forklift_limit import check_forklift_quota
 from app.models.user import User
 from app.models.maintenance import UserForklift, MaintenanceRecord, MaintenanceReminder
 from app.schemas.maintenance import (
@@ -45,6 +46,7 @@ def add_forklift(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    check_forklift_quota(current_user, db)
     forklift = UserForklift(
         user_id=current_user.id,
         forklift_model_id=data.forklift_model_id,
