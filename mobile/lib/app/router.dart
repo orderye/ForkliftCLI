@@ -14,6 +14,10 @@ import 'package:forklift_bao/features/engine/engine_list_page.dart';
 import 'package:forklift_bao/features/threed/threed_viewer_page.dart';
 import 'package:forklift_bao/features/ar/ar_view_page.dart';
 import 'package:forklift_bao/features/embed/embed_search_page.dart';
+import 'package:forklift_bao/features/subscription/subscription_page.dart';
+import 'package:forklift_bao/features/subscription/plans_page.dart';
+import 'package:forklift_bao/features/subscription/trial_page.dart';
+import 'package:forklift_bao/features/subscription/enterprise_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(

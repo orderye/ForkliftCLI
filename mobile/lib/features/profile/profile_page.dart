@@ -34,7 +34,7 @@ class ProfilePage extends StatelessWidget {
                   children: [
                     Text('ForkliftCLI用户', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                     SizedBox(height: 4),
-                    Text('专业版', style: TextStyle(color: Colors.white70)),
+                    Text('Pro', style: TextStyle(color: Colors.white70)),
                   ],
                 ),
               ],
@@ -43,6 +43,7 @@ class ProfilePage extends StatelessWidget {
           const SizedBox(height: 20),
 
           // 功能列表
+          _buildMenuItem(context, Icons.workspace_premium, '会员中心', '订阅状态与套餐', '/subscription'),
           _buildMenuItem(context, Icons.agriculture, '我的叉车', '管理已添加的叉车', '/my-forklifts'),
           _buildMenuItem(context, Icons.build, '维修记录', '查看维修历史', null),
           _buildMenuItem(context, Icons.notifications, '保养提醒', '查看保养计划', null),

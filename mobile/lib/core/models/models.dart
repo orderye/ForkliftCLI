@@ -218,3 +218,101 @@ class UserForkliftItem {
     brandName: json['brand_name'] ?? '',
   );
 }
+
+class SubscriptionMe {
+  final String level;
+  final String? expiresAt;
+  final int? enterpriseId;
+  final String enterpriseName;
+  final int trialCardsRemaining;
+
+  SubscriptionMe({
+    required this.level,
+    this.expiresAt,
+    this.enterpriseId,
+    this.enterpriseName = '',
+    this.trialCardsRemaining = 0,
+  });
+
+  factory SubscriptionMe.fromJson(Map<String, dynamic> json) => SubscriptionMe(
+    level: json['level'] ?? 'free',
+    expiresAt: json['expires_at'],
+    enterpriseId: json['enterprise_id'],
+    enterpriseName: json['enterprise_name'] ?? '',
+    trialCardsRemaining: json['trial_cards_remaining'] ?? 0,
+  );
+
+  bool get isPaid => level == 'pro' || level == 'enterprise';
+}
+
+class TrialCardItem {
+  final int id;
+  final String status;
+  final String? expireAt;
+  final String targetPhone;
+
+  TrialCardItem({
+    required this.id,
+    required this.status,
+    this.expireAt,
+    this.targetPhone = '',
+  });
+
+  factory TrialCardItem.fromJson(Map<String, dynamic> json) => TrialCardItem(
+    id: json['id'],
+    status: json['status'] ?? 'unused',
+    expireAt: json['expire_at'],
+    targetPhone: json['target_phone'] ?? '',
+  );
+}
+
+class EnterpriseAccountItem {
+  final int userId;
+  final String phone;
+  final String nickname;
+  final String? boundAt;
+
+  EnterpriseAccountItem({
+    required this.userId,
+    this.phone = '',
+    this.nickname = '',
+    this.boundAt,
+  });
+
+  factory EnterpriseAccountItem.fromJson(Map<String, dynamic> json) => EnterpriseAccountItem(
+    userId: json['user_id'],
+    phone: json['phone'] ?? '',
+    nickname: json['nickname'] ?? '',
+    boundAt: json['bound_at'],
+  );
+}
+
+class PaymentOrderItem {
+  final int id;
+  final int userId;
+  final String plan;
+  final String platform;
+  final double amount;
+  final String status;
+  final String? createdAt;
+
+  PaymentOrderItem({
+    required this.id,
+    required this.userId,
+    required this.plan,
+    required this.platform,
+    required this.amount,
+    required this.status,
+    this.createdAt,
+  });
+
+  factory PaymentOrderItem.fromJson(Map<String, dynamic> json) => PaymentOrderItem(
+    id: json['id'],
+    userId: json['user_id'],
+    plan: json['plan'] ?? '',
+    platform: json['platform'] ?? '',
+    amount: (json['amount'] ?? 0).toDouble(),
+    status: json['status'] ?? '',
+    createdAt: json['created_at'],
+  );
+}

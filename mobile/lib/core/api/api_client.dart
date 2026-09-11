@@ -6,9 +6,11 @@ class ApiClient {
   static const String _tokenKey = 'auth_token';
 
   late final Dio _dio;
-
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
+
+  // 缓存 SharedPreferences 实例，避免每次请求都重新实例化
+  static SharedPreferences? _sharedPreferences;
 
   ApiClient._internal() {
     _dio = Dio(BaseOptions(
@@ -20,7 +22,8 @@ class ApiClient {
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final prefs = await SharedPreferences.getInstance();
+        // 使用缓存的 SharedPreferences 实例
+        final prefs = _sharedPreferences ??= await SharedPreferences.getInstance();
         final token = prefs.getString(_tokenKey);
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
@@ -29,10 +32,9 @@ class ApiClient {
       },
       onError: (error, handler) {
         if (error.response?.statusCode == 401) {
-          // Token过期，清除并跳转登录
-          SharedPreferences.getInstance().then((prefs) {
-            prefs.remove(_tokenKey);
-          });
+          // Token过期，清除token并重置缓存
+          _sharedPreferences?.remove(_tokenKey);
+          _sharedPreferences = null;
         }
         handler.next(error);
       },
@@ -42,6 +44,7 @@ class ApiClient {
   Dio get dio => _dio;
 
   // ========== 认证 ==========
+
   Future<Map<String, dynamic>> register(String phone, String password, {String nickname = ''}) async {
     final response = await _dio.post('/api/v1/auth/register', data: {
       'phone': phone,
@@ -60,6 +63,8 @@ class ApiClient {
     if (data['access_token'] != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_tokenKey, data['access_token']);
+      // 更新缓存引用，避免下次请求再次实例化
+      _sharedPreferences = prefs;
     }
     return data;
   }
@@ -67,14 +72,17 @@ class ApiClient {
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
+    // 清除缓存引用，重新实例化会去重新读取SharedPreferences
+    _sharedPreferences = null;
   }
 
   Future<bool> isLoggedIn() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = _sharedPreferences ??= await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey) != null;
   }
 
   // ========== 车型库 ==========
+
   Future<List<dynamic>> getBrands() async {
     final response = await _dio.get('/api/v1/forklifts/brands');
     return response.data;
@@ -101,6 +109,7 @@ class ApiClient {
   }
 
   // ========== 发动机 ==========
+
   Future<List<dynamic>> getEngineBrands() async {
     final response = await _dio.get('/api/v1/engines/brands');
     return response.data;
@@ -112,6 +121,7 @@ class ApiClient {
   }
 
   // ========== 配件 ==========
+
   Future<Map<String, dynamic>> searchParts(String query, {int page = 1}) async {
     final response = await _dio.get('/api/v1/parts/search', queryParameters: {
       'q': query,
@@ -121,6 +131,7 @@ class ApiClient {
   }
 
   // ========== 结构图 ==========
+
   Future<List<dynamic>> getModelDiagrams(int modelId) async {
     final response = await _dio.get('/api/v1/diagrams/model/$modelId');
     return response.data;
@@ -137,6 +148,7 @@ class ApiClient {
   }
 
   // ========== AI ==========
+
   Future<Map<String, dynamic>> aiChat(String message, {int? forkliftModelId}) async {
     final response = await _dio.post('/api/v1/ai/chat', data: {
       'message': message,
@@ -154,6 +166,7 @@ class ApiClient {
   }
 
   // ========== 我的叉车 ==========
+
   Future<List<dynamic>> getMyForklifts() async {
     final response = await _dio.get('/api/v1/my-forklifts');
     return response.data;
@@ -175,6 +188,7 @@ class ApiClient {
   }
 
   // ========== 多模态向量搜索 ==========
+
   Future<List<dynamic>> searchEmbed(
     String? queryText, {
     String? queryImageBase64,
@@ -190,5 +204,62 @@ class ApiClient {
       if (engineModelId != null) 'engine_model_id': engineModelId,
     });
     return response.data['hits'];
+  }
+
+  // ========== 订阅 / 商业化 ==========
+
+  /// 当前订阅状态
+  Future<Map<String, dynamic>> getSubscriptionMe() async {
+    final response = await _dio.get('/api/v1/subscription/me');
+    return response.data;
+  }
+
+  /// 创建支付订单，返回 { order_id, plan, amount, payment_params }
+  Future<Map<String, dynamic>> createPayment(String plan, {String platform = 'wechat'}) async {
+    final response = await _dio.post('/api/v1/payment/create', data: {
+      'plan': plan,
+      'platform': platform,
+    });
+    return response.data;
+  }
+
+  /// 我的订单历史
+  Future<List<dynamic>> getPaymentOrders() async {
+    final response = await _dio.get('/api/v1/payment/orders');
+    return response.data;
+  }
+
+  /// 我的体验卡
+  Future<List<dynamic>> getMyTrialCards() async {
+    final response = await _dio.get('/api/v1/trial/my-cards');
+    return response.data;
+  }
+
+  /// 领取体验卡（免费用户输入目标手机号）
+  Future<Map<String, dynamic>> claimTrial(String phone) async {
+    final response = await _dio.post('/api/v1/trial/claim', data: {'phone': phone});
+    return response.data;
+  }
+
+  /// 企业版已绑定账户
+  Future<List<dynamic>> getEnterpriseAccounts() async {
+    final response = await _dio.get('/api/v1/enterprise/accounts');
+    return response.data;
+  }
+
+  /// 企业版绑定账户（输入手机号）
+  Future<Map<String, dynamic>> bindEnterpriseAccount(String phone) async {
+    final response = await _dio.post('/api/v1/enterprise/bind_account', data: {
+      'phone_number': phone,
+    });
+    return response.data;
+  }
+
+  /// 企业版解绑账户（输入手机号）
+  Future<Map<String, dynamic>> unbindEnterpriseAccount(String phone) async {
+    final response = await _dio.post('/api/v1/enterprise/unbind_account', data: {
+      'phone_number': phone,
+    });
+    return response.data;
   }
 }
