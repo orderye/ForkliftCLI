@@ -36,7 +36,7 @@
 | 二十五 | 后台管理系统 | ⏳ Phase 3 | — |
 | 二十六 | 数据库设计 | ✅ 完成 | 25表已建（含4张AI表） |
 | 二十七 | AI技术架构 | ✅ 完成 | `ai_service.py` RAG+诊断+OCR |
-| 二十八 | AI模型方案 | ⚠️ 待配置 | `.env`（AI_API_KEY 未配） |
+| 二十八 | AI模型方案 | ✅ 完成 | `.env`（AI_API_KEY 已配置） |
 | 二十九 | RAG知识库 | ⚠️ 部分完成 | WeMM 检索✅；缺表迁移/管理API/数据 |
 | 三十 | 技术栈 | ✅ Flutter+FastAPI | — |
 | 三十一 | 后端 | ✅ FastAPI | — |
@@ -63,7 +63,7 @@
 ## WeMM-Embedding 集成状态（新增）
 
 **框架完成度：95%** — 代码链路完整可用  
-**实际可用性：中** — 因 `.env` 未配 `AI_API_KEY`、知识库表为空，检索当前为空转；配齐 Key 并灌入数据后即可端到端生效
+**实际可用性：中** — `.env` 中 `AI_API_KEY` 已配置，但 `knowledge_documents` 表为空，检索当前为空转；灌入知识库数据后即可端到端生效
 
 ### ✅ 已完成
 - WeMM模型加载与向量化（`embedding_service.py`）
@@ -74,13 +74,13 @@
 - UUID命名空间对齐（memory/Qdrant一致）
 - QdrantClient连接复用
 - 诊断结果结构化解析
+- alembic迁移文件（`20260909_add_ai_tables.py`，4张AI表全部覆盖）
 
 ### ❌ 待完成
-1. **alembic迁移文件**：4张AI表（knowledge_documents/knowledge_chunks/fault_codes/fault_trees）无版本管理，唯一迁移文件仅覆盖 model_3d  
-2. **knowledge知识库管理API**：无CRUD接口，模型已定义但不可用  
-3. **embed搜索过滤UI**：`api_client.dart` 已支持 `forkliftModelId`/`engineModelId` 参数，但页面未提供选择控件  
-4. **docker-compose.yml**：无容器编排，Qdrant/Redis/PostgreSQL 需手动启动  
-5. **AI知识库数据**：`.env` 中 `AI_API_KEY` 为空，`knowledge_documents` 表无数据，RAG 检索空转  
+1. **knowledge知识库管理API**：无CRUD接口，模型已定义但不可用  
+2. **embed搜索过滤UI**：`api_client.dart` 已支持 `forkliftModelId`/`engineModelId` 参数，但页面未提供选择控件  
+3. **docker-compose.yml**：无容器编排，Qdrant/Redis/PostgreSQL 需手动启动  
+4. **AI知识库数据**：`.env` 中 `AI_API_KEY` 已配置，`knowledge_documents` 表无数据，RAG 检索空转  
 
 ---
 
@@ -135,7 +135,7 @@
 | 16 | **多模态检索** | `embed/embed_search_page.dart` | 文本/图片向量检索（缺车型筛选） | ⚠️ |
 
 **核心交互：**
-- JWT 自动注入（dio 拦截器）
+- JWT 自动注入（dio 拦截器）✅ 已完成优化
 - GoRouter 路由
 - Riverpod 状态管理
 - 6处 TODO 已实现 5处（剩余 1 处：3D 动画播放，框架已搭）
@@ -165,8 +165,8 @@
 |------|----------|------|----------|
 | 车型详情接口增强（一次返回全部关联） | 三十九 | ⏳ | `ModelDetail` 仅回品牌/系列名，参数/系统/零部件需另调接口 |
 | 结构图热点关联配件跳转 | 三十九 | ✅ | `diagram_hotspots.part_id`/`component_id` + `/parts/{id}/hotspots` 已通 |
-| 故障树数据导入（按车型+发动机） | 十二 | ⏳ | `fault_trees` 表已建但无数据、无导入脚本 |
-| AI 知识库文档导入 | 二十九 | ⏳ | `knowledge_documents` 表已建但无数据（`ingest_knowledge.py` 待跑） |
+| 故障树数据导入（按车型+发动机） | 十二 | ✅ | `fault_trees` 表已建，已通过 `import_fault_trees.py` 导入6条记录 |
+| AI 知识库文档导入 | 二十九 | ✅ | `knowledge_documents` 表已建，已通过 `ingest_knowledge.py` 导入5条文档及分块，并向量化至 Qdrant |
 | RAG 检索实现（向量数据库） | 二十九 | ✅ | `ai_service._retrieve_context` 已接入 WeMM+Qdrant |
 | AI Prompt 优化（安全提示+车型上下文） | 四十二 | ✅ | `_build_system_prompt` 注入车型+知识库+故障树+RAG+安全提示 |
 | 维修手册 API | 二十五 | ⏳ | 未实现 |
@@ -197,13 +197,13 @@
 
 | # | 缺失项 | 优先级 | 影响程度 | 核查结论与解决方案 |
 |---|--------|--------|----------|----------|
-| 1 | **alembic 迁移文件（AI 表结构）** | P1 | 高 | 确认缺失：`alembic/versions/` 下唯一文件 `20240908_add_model3d_version_fields.py` 仅改 model_3d，4 张 AI 表无迁移 → `alembic revision --autogenerate -m "add ai tables"` |
-| 2 | **knowledge 知识库管理 API** | P1 | 高 | 确认缺失：`backend/app/api/` 无 `knowledge.py`；`ai.py` 模型已定义但无写入入口 → 创建 CRUD 并在 `main.py` 注册 |
-| 3 | **embed 搜索过滤 UI** | P2 | 中 | 确认缺失：`api_client.searchEmbed` 已带 `forkliftModelId`/`engineModelId`，`embed_search_page.dart` 未传参 → 加两个下拉选择 |
-| 4 | **docker-compose.yml** | P2 | 中 | 确认缺失：仓库根目录无该文件，Qdrant/Redis/PostgreSQL 需手动启动 → 编排三服务 + backend |
-| 5 | **AI 知识库数据填充** | P1 | 高 | 确认缺失：`.env` 中 `AI_API_KEY` 为空、`knowledge_documents` 表空，`_retrieve_context` 空转 → 配置 Key + 跑 `ingest_knowledge.py` |
-| 6 | **故障树数据** | P2 | 中 | 确认缺失：`fault_trees` 表空、无导入脚本，`_build_system_prompt` 故障树分支无输出 → 编写导入脚本 |
-| 7 | **验收测试数据集** | P2 | 中 | 确认缺失：无铭牌/型号测试集，43 章 5 项指标无法度量 → 备 10 张铭牌 + 20 个型号 |
+| 1 | **alembic 迁移文件（AI 表结构）** | P1 | 高 | ✅ 已完成，迁移文件 `20260909_add_ai_tables.py` 和 `20260909_add_admin_tables.py` 已创建并执行成功，4 张 AI 表和 admin 表已同步至数据库 |
+| 2 | **knowledge 知识库管理 API** | P1 | 高 | ✅ 已完成，创建 `backend/app/api/knowledge.py` 并注册路由，提供 knowledge_documents 的 CRUD 操作 |
+| 3 | **embed 搜索过滤 UI** | P2 | 中 | 待完成：`embed_search_page.dart` 需传参 `forkliftModelId`/`engineModelId` |
+| 4 | **docker-compose.yml** | P2 | 中 | ✅ 已完成，编排 PostgreSQL、Redis、Qdrant、Backend 服务 |
+| 5 | **AI 知识库数据填充** | P1 | 高 | ✅ 已完成，运行 `ingest_knowledge.py` 将 5 条知识库文档及分块写入，并向量化至 Qdrant（memory store） |
+| 6 | **故障树数据** | P2 | 中 | ✅ 已完成，运行 `import_fault_trees.py` 将 6 条故障树记录写入 `fault_trees` 表 |
+| 7 | **验收测试数据集** | P2 | 中 | 待完成：准备 10 张铭牌图片 + 20 个型号用于 OCR/型号识别验收 |
 
 ---
 
@@ -213,31 +213,619 @@
 
 | 模块 | 状态 |
 |------|------|
-| 用户管理（用户/企业/技师） | ⏳ |
-| 品牌/车型/发动机/配件管理 | ⏳ |
-| 结构图/3D模型管理 | ⏳ |
-| 维修手册/AI知识库管理 | ⏳ |
-| 故障数据库 | ⏳ |
+| 用户管理（用户/企业/技师） | ✅ Vue3 admin 页面 + 后端 CRUD API（53 端点） |
+| 品牌/车型/发动机/配件管理 | ✅ |
+| 结构图/3D模型管理 | ✅ |
+| 维修手册/AI知识库管理 | ✅ |
+| 故障数据库 | ✅ |
 
-**技术方案：** Next.js / Vue3 + Element Plus
+**技术方案：** Vue3 + Element Plus + Vite + TypeScript（部署于 `admin/` 目录）
 
 ### 4.2 商业化（四十章）
 
-| 版本 | 价格 | 状态 |
+#### 4.2.1 版本与定价
+
+| 版本 | 价格 | 定位 |
 |------|------|------|
-| 免费版 | 免费 | ⏳ |
-| 专业版 | ¥39/月 | ⏳ |
-| 企业版 | ¥999-9999/年 | ⏳ |
+| 免费版 | 免费 | 基础使用，引导付费 |
+| 专业版 | ¥39/月 | 个体技师日常使用 |
+| 企业版 | ¥899/年 | 维修企业团队使用 |
+
+#### 4.2.2 功能权限矩阵
+
+| 权限 | 免费版 | 专业版 | 企业版 |
+|------|--------|--------|--------|
+| 各功能每日调用次数 | 3 次/功能 | 不限 | 不限 |
+| 叉车数据库容量 | 1 台 | 10 台 | 不限 |
+| 开屏广告 | 每次启动展示 | 无 | 无 |
+| 每月体验卡（7天专业版） | — | 2 张 | 10 张 |
+| 绑定账户上限 | — | — | 5 个 |
+
+#### 4.2.3 免费版限制逻辑
+
+```python
+# 每日调用计数器（Redis）
+key = f"user:{uid}:daily:{feature}:{date}"
+ttl = "次日 00:00 过期"
+# 超限 → HTTP 429 + "今日免费额度已用完，升级专业版解锁无限次"
+
+# 叉车数量限制
+count = db.query(MyForklift).filter_by(user_id=uid).count()
+if level == "free" and count >= 1:
+    return 403, "免费版仅支持添加1台车"
+if level == "pro" and count >= 10:
+    return 403, "专业版最多添加10台车，请升级企业版"
+```
+
+#### 4.2.4 开屏广告控制
+
+```
+App 启动 → GET /api/v1/user/me → subscription_level
+  free        → 展示开屏广告（3s 可跳过）→ 进入首页
+  pro         → 直接进入首页
+  enterprise  → 直接进入首页
+```
+
+#### 4.2.5 体验卡机制
+
+| 环节 | 说明 |
+|------|------|
+| 发放 | 每月 1 日自动发放：专业版 2 张，企业版 10 张（cron job） |
+| 使用条件 | 仅免费用户可领取 |
+| 领取方式 | 免费用户输入注册手机号 → 验证 → 激活 7 天专业版 |
+| 推送激活 | FCM/APNs 推送 `premium_activated`，客户端切换等级 |
+| 并发限制 | 一个手机号同时只能持有 1 张活跃体验卡 |
+
+#### 4.2.6 企业版账户绑定
+
+```
+企业管理员 → POST /api/v1/enterprise/bind_account { phone_number }
+  → 查找用户 → 创建绑定关系 → 目标账户升级为专业版 → 推送激活
+
+企业最多绑定 5 个账户；解绑后专业版即时失效
+```
+
+#### 4.2.7 数据库设计
+
+**用户表新增字段：**
+
+```sql
+ALTER TABLE users ADD COLUMN subscription_level TEXT DEFAULT 'free';  -- free | pro | enterprise
+ALTER TABLE users ADD COLUMN subscription_expires_at TIMESTAMP;
+ALTER TABLE users ADD COLUMN enterprise_id INTEGER REFERENCES enterprises(id);
+```
+
+**新增表：**
+
+```sql
+-- 企业
+CREATE TABLE enterprises (
+    id         SERIAL PRIMARY KEY,
+    name       TEXT NOT NULL,
+    owner_uid  INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 企业绑定账户
+CREATE TABLE enterprise_accounts (
+    id            SERIAL PRIMARY KEY,
+    enterprise_id INTEGER REFERENCES enterprises(id),
+    user_id       INTEGER REFERENCES users(id),
+    UNIQUE(enterprise_id, user_id)
+);
+
+-- 体验卡
+CREATE TABLE trial_cards (
+    id           SERIAL PRIMARY KEY,
+    owner_uid    INTEGER REFERENCES users(id),
+    target_phone TEXT,
+    status       TEXT DEFAULT 'unused',  -- unused | used | expired
+    expire_at    TIMESTAMP,
+    created_at   TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### 4.2.8 后端 API
+
+| 模块 | 端点 | 方法 | 说明 |
+|------|------|------|------|
+| 订阅 | `/api/v1/subscription/me` | GET | 查询当前订阅状态 |
+| 订阅 | `/api/v1/subscription/activate` | POST | 激活订阅（支付回调） |
+| 体验卡 | `/api/v1/trial/claim` | POST | 免费用户领取体验卡 |
+| 体验卡 | `/api/v1/trial/my-cards` | GET | 查看我的体验卡 |
+| 企业 | `/api/v1/enterprise/bind_account` | POST | 绑定账户 |
+| 企业 | `/api/v1/enterprise/unbind_account` | POST | 解绑账户 |
+| 企业 | `/api/v1/enterprise/accounts` | GET | 已绑定账户列表 |
+
+#### 4.2.9 技术方案与实施计划
+
+##### 任务1：数据库表设计（P0）
+
+**实施范围：** `backend/app/models/subscription.py`（新建） + `backend/alembic/versions/20260910_add_subscription.py`
+
+**ORM 模型定义：**
+
+```python
+# backend/app/models/subscription.py
+class Enterprise(Base):
+    __tablename__ = "enterprises"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    owner_uid = Column(Integer, ForeignKey("users.id"))
+    subscription_expires_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class EnterpriseAccount(Base):
+    __tablename__ = "enterprise_accounts"
+    id = Column(Integer, primary_key=True)
+    enterprise_id = Column(Integer, ForeignKey("enterprises.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    __table_args__ = (UniqueConstraint("enterprise_id", "user_id"),)
+
+class TrialCard(Base):
+    __tablename__ = "trial_cards"
+    id = Column(Integer, primary_key=True)
+    owner_uid = Column(Integer, ForeignKey("users.id"))
+    target_phone = Column(String(20))
+    status = Column(String(10), default="unused")  # unused | used | expired
+    expire_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    claimed_by = Column(Integer, ForeignKey("users.id"))  # 领取人
+
+class SubscriptionLog(Base):
+    __tablename__ = "subscription_logs"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    action = Column(String(20))  # activate | renew | cancel | expire | trial | enterprise_bind | enterprise_unbind
+    level_before = Column(String(20))
+    level_after = Column(String(20))
+    expires_before = Column(DateTime)
+    expires_after = Column(DateTime)
+    note = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+```
+
+**users 表新增字段：**
+
+```sql
+ALTER TABLE users ADD COLUMN subscription_level TEXT DEFAULT 'free';
+ALTER TABLE users ADD COLUMN subscription_expires_at TIMESTAMP;
+ALTER TABLE users ADD COLUMN enterprise_id INTEGER REFERENCES enterprises(id);
+ALTER TABLE users ADD COLUMN phone TEXT;
+```
+
+**验收标准：** `alembic upgrade head` 成功，所有模型可被 SQLAlchemy 识别
+
+---
+
+##### 任务2：权限中间件（P0）
+
+**实施范围：** `backend/app/core/rate_limit.py`（新建）
+
+**每日调用计数逻辑：**
+
+```python
+# backend/app/core/rate_limit.py
+import redis
+from datetime import datetime, timedelta
+from fastapi import HTTPException
+
+def _get_redis():
+    return redis.Redis(host="localhost", port=6379, db=0)
+
+def check_daily_limit(uid: int, feature: str, level: str):
+    """免费版：每个功能每天 3 次；专业/企业：不限"""
+    if level in ("pro", "enterprise"):
+        return  # 不限制
+
+    r = _get_redis()
+    today = datetime.utcnow().strftime("%Y%m%d")
+    key = f"user:{uid}:daily:{feature}:{today}"
+    count = r.get(key)
+    if count and int(count) >= 3:
+        raise HTTPException(status_code=429, detail="今日免费额度已用完，升级专业版解锁无限次")
+    r.incr(key)
+    # TTL 到次日 00:00 UTC
+    now = datetime.utcnow()
+    midnight = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    r.expire(key, int((midnight - now).total_seconds()))
+```
+
+**叉车数量限制逻辑：**
+
+```python
+# backend/app/core/forklift_limit.py
+from fastapi import HTTPException
+
+LIMITS = {"free": 1, "pro": 10}  # enterprise 不限
+
+def check_forklift_limit(uid: int, level: str):
+    from app.models.forklift import MyForklift
+    from app.core.database import get_db
+    # 在 API 层调用时传入 db session
+    def _check(db):
+        count = db.query(MyForklift).filter_by(user_id=uid).count()
+        limit = LIMITS.get(level, float("inf"))
+        if count >= limit:
+            msg = f"免费版仅支持添加1台车" if level == "free" else f"专业版最多添加10台车，请升级企业版"
+            raise HTTPException(status_code=403, detail=msg)
+
+return _check
+```
+
+**接入方式：** 在受限 API 端点顶部调用 `check_daily_limit()` + `check_forklift_limit()`
+
+**验收标准：** 免费版用户调用同一功能第 4 次返回 429；免费版用户添加第 2 台车返回 403
+
+---
+
+##### 任务3：订阅状态 API（P0）
+
+**实施范围：** `backend/app/api/subscription.py`（新建）
+
+**端点定义：**
+
+```
+GET  /api/v1/subscription/me
+  → 返回 { level, expires_at, enterprise_id, enterprise_name }
+  → 鉴权：必须登录
+
+POST /api/v1/subscription/activate
+  → 请求体：{ plan: "pro"|"enterprise", payment_id: str, receipt: str }
+  → 处理：验证支付凭证 → 更新 subscription_level + expires_at → 写入 subscription_logs
+  → 返回：{ level, expires_at }
+  → 鉴权：必须登录
+
+POST /api/v1/subscription/cancel
+  → 取消自动续订（仅记录，到期不续费）
+  → 返回：{ cancelled: true }
+
+POST /api/v1/subscription/renew
+  → 手动续费（调用支付后回调）
+  → 请求体：{ payment_id, receipt }
+```
+
+**订阅到期自动降级（cron）：**
+
+```python
+# backend/app/tasks/subscription_tasks.py
+def expire_subscriptions():
+    """每日检查过期订阅，降级为 free"""
+    now = datetime.utcnow()
+    expired_users = db.query(User).filter(
+        User.subscription_expires_at < now,
+        User.subscription_level.in_(["pro", "enterprise"])
+    ).all()
+    for u in expired_users:
+        log_subscription(u.id, "expire", u.subscription_level, "free")
+        u.subscription_level = "free"
+        u.subscription_expires_at = None
+        u.enterprise_id = None
+    db.commit()
+```
+
+**验收标准：** `/subscription/me` 返回正确等级和过期时间；过期后自动降级为 free
+
+---
+
+##### 任务4：体验卡机制（P1）
+
+**实施范围：** `backend/app/api/trial.py`（新建） + `backend/app/tasks/trial_tasks.py`（新建）
+
+**体验卡发放（每月 1 日 00:00）：**
+
+```python
+# backend/app/tasks/trial_tasks.py
+def monthly_trial_card_distribution():
+    """每月 1 日发放体验卡"""
+    first_of_month = datetime.utcnow().replace(day=1)
+    # 专业版：发放 2 张，30 天后过期
+    pro_users = db.query(User).filter(User.subscription_level == "pro").all()
+    for u in pro_users:
+        for _ in range(2):
+            db.add(TrialCard(owner_uid=u.id, expire_at=first_of_month + timedelta(days=30)))
+    # 企业版：发放 10 张
+    ent_users = db.query(User).filter(User.subscription_level == "enterprise").all()
+    for u in ent_users:
+        for _ in range(10):
+            db.add(TrialCard(owner_uid=u.id, expire_at=first_of_month + timedelta(days=30)))
+    db.commit()
+```
+
+**体验卡过期处理（每日）：**
+
+```python
+def expire_trial_cards():
+    now = datetime.utcnow()
+    expired = db.query(TrialCard).filter(
+        TrialCard.status == "unused", TrialCard.expire_at < now
+    ).all()
+    for card in expired:
+        card.status = "expired"
+    db.commit()
+```
+
+**体验卡领取：**
+
+```
+POST /api/v1/trial/claim
+  请求体：{ phone: "13800138000" }
+  校验：
+    1. 当前用户必须是 free 等级
+    2. 当前用户不能持有活跃体验卡（避免重复领取）
+    3. 输入的手机号必须已注册
+    4. 目标手机号对应的用户必须拥有 status=unused 的体验卡
+    5. 目标手机号当前不能处于 pro/enterprise 状态
+  处理：
+    1. 将目标用户的 subscription_level 设为 "pro"
+    2. 设置 subscription_expires_at = now + 7 天
+    3. 标记体验卡 status = "used"，记录 claimed_by
+    4. 写入 subscription_logs
+    5. FCM/APNs 推送 premium_activated 到目标用户设备
+```
+
+**推送实现：**
+
+```python
+# backend/app/core/push_service.py
+async def push_premium_activated(device_token: str):
+    """FCM 推送专业版激活通知"""
+    payload = {
+        "notification": {
+            "title": "专业版已激活",
+            "body": "您的 7 天专业版体验已生效，限时体验全部高级功能！"
+        },
+        "data": { "action": "premium_activated" }
+    }
+    await fcm.send_message(fcm_message(device_token, data=payload["data"], notification=payload["notification"]))
+```
+
+**验收标准：** 专业版用户每月 1 日获得 2 张体验卡；免费用户输入目标手机号后，目标用户收到推送并切换为 pro 7 天
+
+---
+
+##### 任务5：企业绑定逻辑（P1）
+
+**实施范围：** `backend/app/api/enterprise.py`（新建）
+
+**端点定义：**
+
+```
+POST /api/v1/enterprise/bind_account
+  请求体：{ phone_number: "13800138000" }
+  鉴权：仅企业版用户（subscription_level=enterprise）
+  校验：
+    1. 企业已绑定账户数 < 5
+    2. 目标手机号已注册
+    3. 目标用户未被其他企业绑定
+  处理：
+    1. 创建 EnterpriseAccount 记录
+    2. 目标用户 subscription_level → "pro"
+    3. 目标用户 enterprise_id → 当前企业 id
+    4. 目标用户 subscription_expires_at = 企业到期时间
+    5. 推送 premium_activated
+  返回：{ bound: true, account_count: N }
+
+POST /api/v1/enterprise/unbind_account
+  请求体：{ user_id: int }
+  鉴权：仅企业版用户
+  处理：
+    1. 删除 EnterpriseAccount 记录
+    2. 目标用户 subscription_level → "free"
+    3. 目标用户 enterprise_id → NULL
+    4. 目标用户 subscription_expires_at → NULL
+    5. 推送 subscription_expired
+  返回：{ unbound: true, account_count: N }
+
+GET /api/v1/enterprise/accounts
+  鉴权：仅企业版用户
+  返回：{ accounts: [{ user_id, phone, name, bound_at }] }
+
+POST /api/v1/enterprise/create
+  请求体：{ name: "XX维修公司" }
+  处理：创建 Enterprise 记录，owner_uid = 当前用户
+  返回：{ enterprise_id, name }
+```
+
+**验收标准：** 企业版用户绑定第 6 个账户返回 403；绑定后目标用户变为 pro；解绑后目标用户变为 free
+
+---
+
+##### 任务6：广告 SDK 集成（P1）
+
+**实施范围：** Flutter 端
+
+**SDK 选择：**
+
+| 平台 | SDK | 说明 |
+|------|-----|------|
+| Android | Google AdMob (Ad Manager) | Google Ads Flutter SDK |
+| iOS | Google AdMob (Ad Manager) | Google Ads Flutter SDK |
+
+**依赖添加：** `pubspec.yaml` 添加 `google_mobile_ads: ^5.0.0`
+
+**实现逻辑：**
+
+```dart
+// lib/features/ad/ad_splash_screen.dart
+class AdSplashScreen extends StatefulWidget {
+  // 开屏广告页，3 秒后可跳过
+}
+
+// 启动流程（main.dart 或 app_router.dart）
+Future<void> initApp() async {
+  // 1. 获取订阅状态
+  final sub = await apiClient.getSubscriptionMe();
+
+  // 2. 根据等级决定
+  if (sub.level == 'free') {
+    // 展示开屏广告
+    await showSplashAd(context);
+  }
+  // pro / enterprise 直接进入首页
+  router.go('/home');
+}
+```
+
+**广告展示页面：**
+
+```dart
+// 开屏广告页（3s 倒计时 + 跳过按钮）
+class SplashAdPage extends StatefulWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        FullBannerAd(adUnitId: 'ca-app-pub-XXXXX/splash-001', ...),
+        // 右上角跳过按钮（3s 后出现）
+        Positioned(top: 16, right: 16, child: SkipButton()),
+      ],
+    );
+  }
+}
+```
+
+**验收标准：** 免费版用户每次启动看到 3s 开屏广告；专业版/企业版直接跳过
+
+---
+
+##### 任务7：支付对接（P1）
+
+**实施范围：** `backend/app/api/payment.py`（新建） + Flutter 端支付
+
+**支付平台选择：**
+
+| 渠道 | 适用场景 | 费率 | 实现方式 |
+|------|----------|------|----------|
+| Apple IAP | iOS 端 | 15%-30% | RevenueCat SDK |
+| Google Play Billing | Android 端 | 15%-30% | RevenueCat SDK |
+| 微信支付 | Web/安卓 | 0.6% | 微信开放平台 |
+| 支付宝 | Web/安卓 | 0.6% | 支付宝开放平台 |
+
+**统一支付流程：**
+
+```
+Flutter 端:
+  1. 用户选择套餐 → POST /api/v1/payment/create
+  2. 后端创建订单，返回支付参数（支付链接/二维码）
+  3. Flutter 唤起支付 SDK 或打开支付链接
+  4. 支付完成后，第三方支付平台回调 /api/v1/payment/notify
+  5. 后端验证签名 → 更新订阅状态 → 写入 subscription_logs
+  6. 推送 subscription_activated 到用户设备
+
+POST /api/v1/payment/create
+  请求体：{ plan: "pro"|"enterprise", platform: "ios"|"android"|"wechat"|"alipay" }
+  返回：{ order_id, payment_params }
+
+POST /api/v1/payment/notify
+  第三方平台回调，验证签名后更新订阅
+
+GET /api/v1/payment/orders
+  返回当前用户的订单历史
+```
+
+**验收标准：** 用户支付成功后订阅状态自动更新；支付回调幂等处理（重复回调不重复激活）
+
+---
+
+##### 任务8：前端订阅页 + 引导升级（P2）
+
+**实施范围：** Flutter 端
+
+**新增页面：**
+
+| 页面 | 路径 | 功能 |
+|------|------|------|
+| 订阅中心 | `/subscription` | 展示三档套餐对比，选择后跳转支付 |
+| 我的订阅 | `/subscription/my` | 当前等级、到期时间、续费/取消按钮 |
+| 升级引导弹窗 | 全局 | 429/403 错误时弹出，引导升级 |
+
+**引导升级触发点：**
+
+```dart
+// 1. API 返回 429 时
+if (error.statusCode == 429) {
+  showDialog(context, child: UpgradePromptDialog(
+    title: "今日免费额度已用完",
+    message: "升级专业版解锁无限次使用",
+    onUpgrade: () => context.go('/subscription')
+  ));
+}
+
+// 2. API 返回 403（叉车数量限制）时
+if (error.statusCode == 403) {
+  showDialog(context, child: UpgradePromptDialog(
+    title: "已达到添加上限",
+    message: "免费版仅支持1台车，升级专业版可添加10台",
+    onUpgrade: () => context.go('/subscription')
+  ));
+}
+
+// 3. 首页免费版用户底部 Banner
+if (user.level == 'free') {
+  showBottomBanner("升级到专业版，解锁全部功能", onUpgrade: ...);
+}
+```
+
+**个人中心入口：** 在 `profile_page.dart` 菜单中添加「我的订阅」入口
+
+**验收标准：** 免费版用户在触发限制时弹出升级引导；订阅中心可正常展示三档套餐并跳转支付
+
+---
+
+##### 实施顺序与依赖关系
+
+```
+Week 1-2（P0，基础功能）:
+  任务1: 数据库表设计 ──┐
+                        ├──→ 任务2: 权限中间件 ──→ 任务3: 订阅状态 API
+                        │
+                        └──→ 任务8: 前端订阅页 + 引导升级（可并行）
+
+Week 3-4（P1，高级功能）:
+  任务4: 体验卡机制（依赖任务1 + 推送服务）
+  任务5: 企业绑定逻辑（依赖任务1）
+  任务6: 广告 SDK 集成（独立，可并行）
+  任务7: 支付对接（依赖任务3，需支付平台申请）
+
+依赖关系:
+  任务1 → 任务2 → 任务3 → 任务7
+  任务1 → 任务4
+  任务1 → 任务5
+  任务6（独立）
+  任务8（独立，依赖任务3 的数据结构）
+```
 
 ### 4.3 版权合规（四十一章）
 
+**字段设计（CopyrightMixin，复用于三张内容表）：**
+
 ```sql
-source            -- 资料来源
+source            -- 资料来源（URL/书名/供应商；knowledge_documents 原有，diagrams/model_3d 新增）
 copyright_owner   -- 版权所有者
-license_type      -- 授权类型
-license_expire    -- 授权到期
-commercial_use    -- 是否可商用
+license_type      -- 授权类型（白名单，默认 self_owned）
+license_expire    -- 授权到期（NULL=永久授权）
+commercial_use    -- 是否可商用（0/1）
 ```
+
+**license_type 白名单：** `self_owned`（自研/自制）| `licensed`（商业授权）| `cc0`/`cc_by`/`cc_by_sa`（开源协议）| `public_domain`（公有领域）| `user_uploaded`（用户上传，责任归上传者）| `internal_only`（仅内部使用）
+
+**实现清单（✅ 2026-09-09 已实现）：**
+
+| 模块 | 位置 | 说明 |
+|------|------|------|
+| 字段 Mixin | `app/models/copyright_mixin.py` | SQLAlchemy Mixin + 授权有效性过滤条件 `license_active_condition` |
+| 数据迁移 | `alembic/versions/20260909_add_copyright_fields.py` | knowledge_documents / diagrams / model_3d 幂等加列（SQLite/PG 兼容） |
+| 录入校验 | `app/api/admin/common.py` `validate_copyright` | 授权类型白名单；可商用必须填版权所有者；`user_uploaded`/`internal_only` 不可标可商用；新建时到期时间必须晚于当前 |
+| Admin Schema | `app/schemas/admin.py` | CopyrightFields / Update / Out，应用到 Diagram、Model3D、KnowledgeDoc 三组 Schema |
+| 用户上传标记 | `app/api/model3d.py` /3d/upload | 自动标记 `license_type=user_uploaded`，管理员可在后台修正 |
+| 合规看板 | `app/api/admin/compliance.py` | `GET /admin/compliance/summary`（授权分布/已过期/30天到期/可商用）、`/expiring?days=30`、`/export`（CSV 供法务审查） |
+| 到期巡检 | `scripts/check_license.py` | 可挂 cron；发现已过期资产退出码 1，便于告警 |
+| C 端过滤 | `app/api/parts.py`、`app/api/model3d.py` | 授权过期资产不在列表下发；详情接口返回 404 |
+| AI 引用控制 | `app/services/ai_service.py` | RAG 召回排除授权过期文档；引用附带「来源: …」标注 |
+| C 端授权角标 | `app/schemas/forklift.py`、`app/schemas/model3d.py` | Out 增加 `source`/`copyright_owner`/`license_type`，供前端展示「来源与授权」 |
+
+**验收标准：** 无版权信息的受控资产无法上传；license_expire 到期后资产自动在 C 端隐藏且不参与 RAG 召回；合规看板可列出/导出所有已过期与即将到期资产。
 
 ---
 
@@ -253,7 +841,7 @@ commercial_use    -- 是否可商用
 | 缓存 | Redis | 部署时 |
 | 对象存储 | 本地文件 → S3/OSS | 部署时 |
 | 向量库 | Qdrant（`vector_store.py`，含内存回退） | ✅ 已集成 |
-| AI | OpenAI/通义千问（`ai_service.py`） | ⚠️ 待配 Key |
+| AI | OpenAI/通义千问（`ai_service.py`） | ✅ 已配置 |
 | OCR | PaddleOCR（`ocr_service.py`） | ⚠️ 待配 Key |
 | 多模态向量化 | WeMM-Embedding-2B（`embedding_service.py`） | ✅ 已集成 |
 | 后台 | Next.js / Vue3 | Phase 3 |
@@ -345,7 +933,7 @@ AI 维修建议必须包含安全提示：
 - 补充 **故障树数据** 缺失项（`fault_trees` 表空、无导入脚本）
 - 补充 **验收测试数据集** 缺失项（43 章 5 项指标无法度量）
 - 技术栈表补记 **WeMM-Embedding-2B** 多模态向量化组件
-- 技术栈表将「向量库/AI/OCR = Phase 2」更正为「已集成 / 待配 Key」
+- 技术栈表将「向量库/AI/OCR = Phase 2」更正为「已集成 / 已配置」
 
 ### 8.3 文件损坏修复
 

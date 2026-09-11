@@ -14,6 +14,7 @@ venv/
 
 # ── Database ──
 *.db
+*.db.backup_*
 
 # ── IDE / Editor ──
 .vscode/
@@ -59,6 +60,7 @@ GlbTest/
 BookTool/
 troublecode/
 铭牌数据/
+Docssss/
 
 # ── 日志 ──
 backend/backend.log
