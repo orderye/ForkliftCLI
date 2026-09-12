@@ -1,0 +1,67 @@
+{
+  "source_file": "001.glb",
+  "generated_at": "2026-09-12T12:52:50",
+  "generator": "https://tripo3d.ai",
+  "gltf_version": "2.0",
+  "format": "glb",
+  "file_bytes": 42438452,
+  "file_size_mb": 40.472,
+  "mesh_count": 1,
+  "node_count": 1,
+  "primitive_count": 1,
+  "material_count": 1,
+  "image_count": 3,
+  "bounding_box": {
+    "min": [
+      -1.0,
+      -1.0,
+      -1.0
+    ],
+    "max": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "size": [
+      2.0,
+      2.0,
+      2.0
+    ]
+  },
+  "parts": [
+    {
+      "part_id": 1,
+      "mesh_name": "tripo_node_9a48811f-7833-48ad-b60c-4cbd5cdde352",
+      "display_name": "tripo_node_9a48811f-7833-48ad-b60c-4cbd5cdde352",
+      "node_index": 0,
+      "mesh_index": 0,
+      "primitives": 1,
+      "group": "body",
+      "has_user_data": false,
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  ],
+  "animations": [],
+  "capability_check": {
+    "part_highlight_usable": false,
+    "part_convention_hit": [],
+    "explode_usable": false,
+    "animation_usable": false,
+    "ar_1_to_1_usable": true
+  },
+  "problems": [
+    "只有一个零件：爆炸图与多零件高亮无意义",
+    "无动画剪辑：门架升降/倾斜/货叉开合等机械动作全部不可用",
+    "节点未写 extras.partId：Web/Unity 侧按 partId 定位零件会失败"
+  ],
+  "recommendation": "该资产不具备叉车部件层级。要做零件高亮/爆炸图/机械动作，需从 STEP 源文件按部件名重新导出（见 docs/SOLIDWORKS_EXPORT_GUIDE.md）；当前资产只适合整体浏览与 AR 1:1 放置。"
+}

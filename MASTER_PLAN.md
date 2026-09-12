@@ -2,8 +2,10 @@
 
 **项目：** ForkliftCLI — 智能叉车维修辅助工具  
 **对照文档：** 《ForkliftCLI》产品与技术研发需求文档 V1.0（48章）  
-**最后更新：** 2026-09-11  
+**最后更新：** 2026-09-12（Unity 3D/AR 模块完成度与接入度实测）  
 **状态：** Phase 1 完成 / Phase 2 完成 / Phase 3 已完成（后台+商业化+版权合规） / 验收待执行  
+**⚠️ 3D/AR 架构变更：** 渲染已从 Unity 迁移到 Web 渲染器（`<model-viewer>` + Three.js）。
+Unity 工程仍在仓库中但**不在运行时路径上**，细节见「九、Unity 3D/AR 模块状态」  
 
 ## 一、需求文档映射（48章）
 
@@ -21,15 +23,15 @@
 | 十 | 发动机结构图 | ✅ 完成 | `diagram_view_page.dart` |
 | 十一 | AI维修助手 | ✅ 完成 | `ai_chat_page.dart` |
 | 十二 | AI故障诊断逻辑 | ✅ 完成 | `ai_service.py` + `ai_diagnosis_page.dart` |
-| 十三 | 3D叉车系统 | ✅ 完成 | `threed_viewer_page.dart` |
-| 十四 | 机械动作系统 | ✅ 完成 | 门架/货叉/倾斜控制 |
-| 十五 | 3D控制界面 | ✅ 完成 | 控制面板 |
-| 十六 | AR实景系统 | ✅ 完成 | `ar_view_page.dart` |
-| 十七 | AR真实尺寸 | ✅ 完成 | 尺寸叠加层 |
-| 十八 | AR空间占位 | ✅ 完成 | 面积计算 |
-| 十九 | AR门架动作 | ✅ 完成 | 门架滑块+按钮 |
-| 二十 | 3D拆解模式 | ⚠️ 需3D模型 | 框架已搭 |
-| 二十一 | 维修AR | ⏳ V3阶段 | — |
+| 十三 | 3D叉车系统 | ⚠️ 链路已通，待真机验证 | `threed/threed_viewer_page_v2.dart`（Web）；模型文件已恢复 |
+| 十四 | 机械动作系统 | ⚠️ 代码通，无数据 | Web `playAnimation`/Unity `AnimationController`；`model_3d_animations`=0 行 |
+| 十五 | 3D控制界面 | ⚠️ 部分可用 | 相机控制✅；自动旋转开关未接线、动画/清高亮无入口 |
+| 十六 | AR实景系统 | ⚠️ 仅 lite 可试 | WebXR immersive-ar 在 WebView 内不可用，只有 `<model-viewer>` AR 按钮 |
+| 十七 | AR真实尺寸 | ⚠️ 已录入 1 台车，待真机验证 | `ar_model_config` 已写入 8FG30 实测尺寸；其余车型仍无数据 |
+| 十八 | AR空间占位 | ⚠️ 仅 Unity 侧有 | Web 渲染器不支持（`MIGRATION.md` 已标注） |
+| 十九 | AR门架动作 | ⚠️ 仅 Unity 侧有 | 同上映射到动画；无动画数据 |
+| 二十 | 3D拆解模式 | ⚠️ 需模型资产 | Web `setExploded` 已实现；待真实 GLB + 零件映射 |
+| 二十一 | 维修AR | ⚠️ 未提交 | `maintenance_guide_page.dart`（Web 版已写，git untracked）；Unity 侧 `ARRepairGuide` 有实现 |
 | 二十二 | 用户设备档案 | ✅ 完成 | `my_forklifts_page.dart` |
 | 二十三 | 维修记录 | ✅ 完成 | `records_page.dart` |
 | 二十四 | 保养提醒 | ✅ 完成 | `reminders_page.dart` |
@@ -58,7 +60,23 @@
 | 四十七 | 产品最终形态 | ✅ 已理解 | — |
 | 四十八 | 核心竞争力 | ✅ 已理解 | — |
 
-**统计：** 40 章完成（含已理解/已设计） / 2 章部分完成 / 2 章待执行 / 4 章待开发（V3/AR维修/3D拆解模型）
+**统计：** 37 章完成（含已理解/已设计） / 9 章部分完成 / 2 章待执行（含 V3.0 AR维修）
+
+> **2026-09-12 修正：** 第三章统计的 3D/AR 各章此前按 Unity V1 页面标记为「✅ 完成」。
+> 实测发现：① 3D/AR 渲染已迁移到 Web 渲染器，Unity 工程不在运行时路径上；
+> ② 模型二进制缺失（`backend/uploads/` 为空）、`model_3d_parts`/`model_3d_animations`/
+> `ar_model_config` 均为 0 行，导致链路端到端不通。故十三~十九、二十一改为 ⚠️，
+> 十七（AR真实尺寸）因无数据降为 ❌。详见「九、Unity 3D/AR 模块状态」
+>
+> **同日数据断点已修复**（见 8.5）：模型文件按哈希找回、`ar_model_config` 已录入
+> 8FG30 实测尺寸、`model_3d_parts` 已按真实节点写入。十三、十七回升为 ⚠️。
+> 3D/AR 链路代码与数据已齐，**剩余卡点是本机无 Flutter SDK，真机行为未验证**。
+
+> **2026-09-12 修正：** 第三章统计的 3D/AR 各章此前按 Unity V1 页面标记为「✅ 完成」。
+> 实测发现：① 3D/AR 渲染已迁移到 Web 渲染器，Unity 工程不在运行时路径上；
+> ② 模型二进制缺失（`backend/uploads/` 为空）、`model_3d_parts`/`model_3d_animations`/
+> `ar_model_config` 均为 0 行，导致链路端到端不通。故十三~十九、二十一改为 ⚠️，
+> 十七（AR真实尺寸）因无数据降为 ❌。详见「九、Unity 3D/AR 模块状态」
 
 ## WeMM-Embedding 集成状态
 
@@ -141,8 +159,11 @@
 | 12 | AI聊天 | `ai_assistant/ai_chat_page.dart` | 对话界面 | ✅ |
 | 13 | **AI故障诊断** | `ai_assistant/ai_diagnosis_page.dart` | 结构化诊断（症状/原因/检查/安全） | ✅ |
 | 14 | 个人中心 | `profile/profile_page.dart` | 菜单+退出 | ✅ |
-| 15 | 3D查看 | `threed/threed_viewer_page.dart` | 旋转+缩放+门架+高亮 | ✅ |
-| 16 | AR实景 | `ar/ar_view_page.dart` | 1:1尺寸+门架动作 | ✅ |
+| 15 | 3D查看 | `threed/threed_viewer_page_v2.dart`（Web 渲染器，现役） | 旋转+缩放+高亮 | ⚠️ 自动旋转未接线、动画无入口 |
+| 15b | 3D查看 V1 | `threed/threed_viewer_page.dart`（Unity，已弃用未路由） | — | ⚠️ 死代码 |
+| 16 | AR实景 | `ar/ar_view_page_v2.dart`（Web，现役） | `<model-viewer>` AR | ⚠️ WebXR 不可用、无 1:1 数据 |
+| 16b | AR实景 V1 | `ar/ar_view_page.dart`（Unity，已弃用未路由） | — | ⚠️ 死代码 |
+| 16c | 维修指导 | `viewer/maintenance_guide_page.dart` | 高亮+爆炸+测量 | ⚠️ 已写，git untracked |
 | 17 | 多模态检索 | `embed/embed_search_page.dart` | 文本/图片向量检索（缺车型筛选） | ⚠️ |
 | 18 | **维修手册列表** | `manual/manual_list_page.dart` | 手册列表+按车型筛选 | ✅ |
 | 19 | **维修手册详情** | `manual/manual_detail_page.dart` | 手册元数据+版权信息 | ✅ |
@@ -169,8 +190,9 @@
 | API 客户端 | `core/api/api_client.dart` | ✅ 37个方法覆盖全部C端API |
 | 数据模型 | `core/models/models.dart` | ✅ |
 | pubspec | `pubspec.yaml` | ✅ |
-| model_viewer_plus | 3D/AR 渲染 | ✅ |
-| Unity 桥接 | `core/unity/unity_bridge.dart` + `unity_view_wrapper.dart` | ✅ |
+| Web 3D/AR 渲染 | `mobile/lib/viewer/`（14 文件 / 1659 行）+ `assets/viewer_{lite,full}.html`（654 行） | ⚠️ 未提交；CDN 依赖无离线 |
+| model_viewer_plus | pubspec 中仍声明，**lib 下 0 处引用** | ⚠️ 死依赖 |
+| Unity 桥接 | `core/unity/unity_bridge.dart` + `unity_view_wrapper.dart` | ⚠️ `@deprecated`，仅留作回退 |
 | 依赖 | FastAPI/UVicorn/SQLAlchemy/Alembic/... | ✅ |
 | Docker | `backend/Dockerfile` + `docker-compose.yml` | ✅ PostgreSQL/Redis/Qdrant/Backend |
 | 环境配置 | `backend/.env` + `.env.example` | ✅ |
@@ -416,8 +438,11 @@ commercial_use    -- 是否可商用（0/1）
 | 层 | 技术 | 状态 |
 |----|------|------|
 | 移动端 | Flutter + Riverpod + GoRouter | ✅ |
-| 3D渲染 | model_viewer_plus + Filament | ✅ |
-| AR | ARKit/ARCore（通过 model_viewer_plus） | ✅ |
+| 3D渲染（现役） | Web：`<model-viewer>` 3.5.0 + Three.js 0.160.0（`webview_flutter`） | ⚠️ 从 unpkg CDN 加载，**无离线**；迁移未提交 |
+| 3D渲染（Unity，已弃用） | Unity 2022.3.20f1 + URP 14.x + GLTFast 5.1.0 | ⚠️ 0 场景 / 0 原生桥 / 0 素材，仅 Editor 可跑 |
+| AR（现役） | lite：`<model-viewer>` AR 按钮（Scene Viewer） | ⚠️ full 渲染器的 WebXR immersive-ar 在 WebView 内不可用 |
+| AR（Unity，已弃用） | ARFoundation/ARCore 5.1.0 + ARKit 5.1.0 | ⚠️ 场景未建，原生桥缺失 |
+| model_viewer_plus | pubspec 声明中，lib 下 0 处引用 | ⚠️ 死依赖，可删 |
 | 后端 | Python + FastAPI | ✅ |
 | 数据库 | SQLite（开发）→ PostgreSQL（部署） | ✅ |
 | 缓存 | Redis（限流计数器） | ✅ `rate_limit.py` |
@@ -484,13 +509,19 @@ AI 维修建议必须包含安全提示：
         14 个 alembic 迁移文件
         64 个测试用例（61 passed / 2 skipped / 1 xfailed）
 
-前端:    6820 行 / 33 文件 / 26 页面
+前端:    9376 行 / 49 文件 / 32 页面
          37 个 API 方法（api_client.dart）
+         其中 lib/viewer/ 1659 行 / 14 文件 + assets/*.html 654 行（Web 3D/AR 渲染器）
+         其中 lib/core/unity/ 424 行（已弃用，仅回退用）
+         2 个 viewer 测试（99 行，Flutter SDK 未安装，未执行验证）
 
 后台:    2549 行 / 22 文件 / 12 个 Vue 页面
 
-总计:   21505 行 / 163 文件
+总计:   24061 行 / 179 文件
 ```
+
+> 本次增量（2026-09-12）：前端 6820→9376 行，全部来自 Web 3D/AR 渲染器迁移，
+> 且**尚未 git 提交**（`lib/viewer/`、`assets/`、V2 页面、`test/viewer/` 为 untracked）。
 
 > 上版数据（4244 行 / 49 文件 / 25 表 / 42 Schema / 47 端点 / 4596 行前端 / 4个测试）
 > 已按 `wc -l`、`__tablename__`、`@router.*`、`grep "class.*BaseModel"` 实测值校准。
@@ -511,9 +542,144 @@ AI 维修建议必须包含安全提示：
 
 ---
 
-## 八、修订记录
+## 八、Unity 3D/AR 模块状态（2026-09-12 实测）
 
-### 8.1 2026-09-11 全量审校（本次）
+### 8.1 架构结论：Unity 已让位给 Web 渲染器
+
+| 维度 | Unity 方案（V1） | Web 渲染器（V2，现役） |
+|------|------------------|------------------------|
+| Flutter 接入 | `lib/core/unity/`（424 行） | `lib/viewer/`（1659 行 / 14 文件） |
+| 路由 | **未挂载**（V1 页面无路由） | `/3d`、`/ar`、`/viewer`、`/ar-web`、`/maintenance/:id` 全部挂载 |
+| pubspec | `flutter_unity_widget` 已注释 | `webview_flutter: ^4.8.0` |
+| 代码状态 | `@deprecated`，仅回退用 | 已写，**git untracked（未提交）** |
+| 渲染器 | URP 14.x + GLTFast 5.1.0 | `<model-viewer>` 3.5.0（lite）/ Three.js 0.160.0（full），按 `requireFeatures` 自动升级 |
+| 原生依赖 | 需 Android/iOS 原生桥 | 无（WebView 内置） |
+| 包体增量 | ~+25 MB | ~+200 KB |
+
+### 8.2 完成度（Web 渲染器）
+
+| 能力 | 状态 | 证据 / 缺口 |
+|------|------|-------------|
+| 模型加载（GLB/GLTF） | ✅ | `GLTFLoader` + `normalizeScale` 包围盒归一 |
+| 相机旋转/缩放/复位 | ✅ | `OrbitControls` + `setCamera`/`resetView` |
+| 零件高亮/清除 | ✅ | emissive 材质替换 + `originalMats` 还原 |
+| 爆炸图 | ✅ | `setExploded` 按方向位移 |
+| 动画播放/停止 | ✅ | `AnimationMixer` |
+| 测量标注 | ✅ | `measure`/`clearMeasure` + TextSprite |
+| 渲染器自动升级 | ✅ | `requireFeatures` 懒销毁 lite、新建 full 并重载模型 |
+| 零件点击（`onPartClicked`） | ❌ | full 渲染器 `onPointerEnd` 仍是 `/* reserved */` 占位 |
+| 离线使用 | ❌ | Three.js / model-viewer 均从 `unpkg.com` CDN 加载，无本地副本 |
+| 模型文件缓存 | ❌ 死代码 | `ModelAssetManager.downloadAndCache`/`getCachedFilePath` 无人调用 |
+| 3D 拆解 | ✅ 代码可用 | 后端 `model_3d` 2 行但缺文件 |
+
+### 8.3 接入度（后端 → App 链路）
+
+| 环节 | 状态 | 实测 |
+|------|------|------|
+| 后端端点 | ✅ | `GET /api/v1/3d/forklift/{id}` 返回 `{model, parts, animations}`，`model3d.py:87` |
+| 契约对齐 | ✅ | `ModelAssetManager._fetchFromApi` 读取字段与 `Model3DOut`/`Model3DPartOut` 一致 |
+| AR 配置端点 | ✅ 存在，无数据 | `GET /api/v1/ar/config/{id}` 已实现；`ar_model_config` 表 **0 行** |
+| 3D 模型元数据 | ⚠️ 2 条 | `model_3d`：`forklift_model_id=1`，v1/v2，`status=ready` |
+| 模型二进制 | ❌ 缺失 | `backend/uploads/` **完全为空**，两条 `file_url` 全部 404 |
+| 零件数据 | ❌ 空 | `model_3d_parts` = 0 行（前端零件列表必然空） |
+| 动画数据 | ❌ 空 | `model_3d_animations` = 0 行 |
+| 真实模型资产 | ⚠️ 有但未接入 | `Glb/001.glb`、`Glb/002.glb`（各 42MB）在仓库根，既未进 Unity `StreamingAssets` 也未上传后端 |
+| 授权过滤 | ✅ | 端点带 `license_active_condition`，过期模型不下发 |
+
+**端到端结论：链路代码全通，但当前一次真实加载都会失败** ——
+元数据返回成功，随即 `GLTFLoader` 请求的 `file_url` 404。
+
+### 8.4 Unity 工程完成度（供回退评估）
+
+| 项 | 状态 |
+|----|------|
+| C# 代码量 | 1742 行 / 17 文件，`Assets/Scripts/` |
+| 消息桥 | ✅ 完整：JSON 解析/分发/错误回传，**22 个已注册方法** |
+| 注册方法超文档 | 9 个未写入 `unity/README.md` 与 `UNITY_INTEGRATION_PLAN.md`：`clearModel`、`setSteerAngle`、`resetView`、`setView`、`confirmARPlacement`、`repositionAR`、`hideARDimensions`、`beginARGuide`、`endARGuide` |
+| GLTFast 降级 | ✅ 诚实降级：写本地缓存后回 `onError`，不假装成功 |
+| 场景 | ❌ 0 个 `.unity`；`Editor/CreateScenes.cs` 需人工点菜单，且生成的场景**缺 `ModelLoader`/`CameraController`**，AR 场景缺 `ARSession`/`ARCamera`/`ARRaycastManager`/`ARPlaneManager` |
+| 原生桥 | ❌ 全仓库 0 个 `.kt` / `.mm`；`DllImport("__Internal") _forkliftBao_sendToFlutter` 无实现 |
+| 素材 | ❌ `Scenes/` `Materials/` `Prefabs/` `Shaders/` 全空；无 URP `UniversalRenderPipelineAsset` |
+| 点击拾取 | ❌ GLTFast 不输出 Collider，`CameraController.onPartClicked` 永不触发 |
+| 零件映射 | ⚠️ `PartMapping.cs` 硬编码 8 个叉车部件名，按精确节点名匹配，通用 GLB 不匹配 |
+| 潜在缺陷 | `UnityMessageManager.Awake()` 调 `s_handlers.Clear()`，Awake 顺序反转会清空所有注册 |
+
+**Unity 侧结论：** 通信层扎实，设备 I/O 与场景脚手架全部未交付。复活需 4 项前置工作
+（原生桥 / 场景组件补挂 / URP 与材质 / GLB 与元数据导入）外加把 Flutter 路由切回 V1，
+**建议不复活**，以 Web 渲染器为主线。
+
+### 8.5 建议动作执行记录（2026-09-12 当日完成）
+
+> 上表 8.1–8.4 的问题于同日修复，逐项结果如下。修完后再测出的新问题也一并列出。
+
+| # | 优先级 | 动作 | 结果 |
+|---|--------|------|------|
+| 1 | P0 | 修复数据断点 | ✅ **根因不是 DB 错，是 `uploads/` 被清空**：`Glb/001.glb` 的 SHA256 前缀 `623408c9631c90ba` 正好等于 `model_3d` v1 的 `storage_key`，`002.glb` 同理匹配 v2。因此按哈希找回**恢复原文件**而非新建 v3，避免出现两条内容重复的模型记录。`backend/scripts/fix_3d_assets.py`（幂等，已验证复跑不产生重复数据） |
+| 2 | P0 | 填 `ar_model_config` | ✅ 1 行，尺寸取自 `forklift_models` 已录入的 8FG30 实测参数（3850×1240×2150 mm，门架 3000 mm，scale_factor=1.0）。**轴距/转弯半径未编造**：车型表里就是 NULL，展示层显示 "—" |
+| 3 | P1 | 提交 Web 渲染器迁移 | ✅ 已提交（见 9.0 记录） |
+| 4 | P1 | Three.js 本地化 | ✅ three@0.160.0 + model-viewer@3.5.0 打进 `assets/vendor/`（2.3 MB，含 SHA256 与升级步骤，见 `assets/vendor/README.md`）。**代价修正：原「+200 KB」是把依赖放 CDN 的算法，离线化的真实增量是 ~2.3 MB**。加载方式从 `loadHtmlString(baseUrl: 'file:///')` 改为 `loadFileUrl(asset:///...)`，否则 `file:///` 基址下 ES module 被 CORS 拦死 |
+| 5 | P2 | 补 `model_3d_parts` | ⚠️ **不能按原方案跑**：`tools/generate_model_metadata.py` 原先只吐硬编码模板（8 个叉车部件），从不读模型；实测两份 GLB 均为 tripo3d.ai 生成的**单网格**资产，1 节点 0 动画，与那 8 个部件名完全对不上。已重写该工具改为真实解析 GLB（含能力校验与告警），据此写入 2 条**真实节点名**的零件记录 |
+| 6 | P2 | 清理死代码 | ✅ 删 `model_viewer_plus`（lib 下 0 引用）；`_autoRotate` 接线到 `setAutoRotate`（两渲染器均支持，切渲染器后状态自动重下发，拖拽自动停）；full 渲染器补上真实点击判定（位移<12px 且 <600ms），`onPointerEnd` 空实现移除 |
+| 7 | P3 | AR 技术路线 | ✅ 已决策并写入 `mobile/lib/viewer/README.md`：AR 走 lite（`<model-viewer>` 的 Scene Viewer / Quick Look），full 的 WebXR `immersive-ar` 在 WebView 内不可用、视为不可交付；原生 ARKit/ARCore 留到 V3.0。full 的 `enterAR` 保留但预期真机报"浏览器不支持 WebXR" |
+
+**修完数据断点后又发现并修掉的两个隐藏断点：**
+
+| 问题 | 影响 | 修复 |
+|------|------|------|
+| 后端 `file_url` 是**相对路径**（`/uploads/...`），而 WebView 基址是 `asset:///` | GLTFLoader 会请求 `asset:///uploads/...` 直接 404 —— 即使模型文件已恢复，3D 仍然打不开 | `ApiClient` 暴露 `baseUrl`，`ModelAssetManager.resolveUrl` 统一补全（含读缓存后补全，防旧缓存残留），并新增 9 个测试用例 |
+| full 渲染器 `buildPartMap` 只按 `userData.partId`/自身名建索引，而 GLTFLoader 给 mesh 的名字是 `tripo_mesh_...`、后端存的是节点名 `tripo_node_...` | 零件列表点谁都报"未找到零件" | 索引改为 `partId → partName → 自身名 → 最近具名父节点` 多键命中；`highlightPart` 的模糊匹配分支原会在 `meshes` 为 undefined 时 `push` 抛 TypeError，一并修掉；高亮材质用完即 dispose（原先每次点击泄漏一份 GPU 资源） |
+
+**遗留未决：**
+
+- `model_3d` 现存 2 条记录的 `license_type` 均为 `self_owned`（自研/自制），
+  但资产明确来自 tripo3d.ai 生成。这是**存疑的权利声明**：若没有 tripo3d 的
+  商用授权，按 `self_owned` 随付费套餐下发存在合规风险。新上传走
+  `internal_only`；存量两条是否改，需要确认授权情况后人工定，脚本未擅自改动。
+- Web 渲染器迁移的**真机行为未验证**：本机无 Flutter SDK，改动的 Dart 未编译、
+  `test/viewer/` 3 个用例未执行；`asset://` 协议加载 ES module 在
+  Android WebView / iOS WKWebView 的实际表现需上真机确认（含 iOS 可能需要的
+  `WKWebViewCustomProtocolAllowedSchemes` 配置）。
+
+---
+
+## 九、修订记录
+
+### 9.0 2026-09-12 Unity 3D/AR 模块完成度与接入度实测（本次）
+
+**核查范围：** `unity/` 全部 17 个 C# 文件 + `mobile/lib/viewer/` 14 文件 +
+`mobile/assets/*.html` + V1/V2 页面 + `backend/app/api/model3d.py` +
+SQLite 数据库实测 + `git status`
+
+**关键发现：**
+
+| 发现 | 详情 |
+|------|------|
+| 架构已变 | 3D/AR 渲染从 Unity 迁移到 Web 渲染器；`/3d`、`/ar` 路由指向 V2 页面，Unity 不在运行时路径 |
+| Unity 文档失效 | `unity/README.md` 声称「pubspec 已添加 `flutter_unity_widget: ^2.3.0`」——实测已注释掉 |
+| Unity 无法上真机 | 0 场景 / 0 `.kt`/`.mm` 原生桥 / 0 素材；`CreateScenes` 生成的场景还缺 `ModelLoader` 与 `CameraController` |
+| **模型二进制缺失（P0）** | `backend/uploads/` 完全为空，`model_3d` 2 条 `file_url` 全 404 |
+| **AR 无数据（P0）** | `ar_model_config` 0 行；`model_3d_parts` 0 行；`model_3d_animations` 0 行 |
+| 真实模型未接入 | `Glb/001.glb`、`Glb/002.glb`（各 42MB）在仓库根，两边都没进 |
+| Web 侧真缺口 | full 渲染器 `onPointerEnd` 占位 → 零件点击失效；Three.js 走 CDN → 无离线 |
+| 迁移未提交 | `lib/viewer/`、`assets/`、V2 页面、`test/viewer/` 全部 git untracked |
+
+**数字校准：** 前端 6820 行 / 33 文件 → **9376 行 / 49 文件**；
+总计 21505 行 / 163 文件 → **24061 行 / 179 文件**；
+48 章统计 40 ✅ / 2 ⚠️ / 2 ⏳ → **37 ✅ / 8 ⚠️ / 1 ❌ / 2 ⏳**。
+
+**后续修复（同日，逐项结果见 8.5）：** 上表 P0/P1/P2 项均已处置 ——
+模型文件按哈希找回（根因是 `uploads/` 被清空，DB 记录本身是对的）、
+`ar_model_config` 与 `model_3d_parts` 已按真实数据写入、Three.js/model-viewer
+本地化到 `assets/vendor/`（2.3 MB）、`model_viewer_plus` 死依赖删除、
+full 渲染器补上真实点击判定、AR 路线已决策走 lite。
+十三、十七回升为 ⚠️，统计变为 **37 ✅ / 9 ⚠️ / 0 ❌ / 2 ⏳**。
+**剩余卡点：本机无 Flutter SDK，改动未编译、真机行为未验证。**
+
+**文档修订：** 新增「八、Unity 3D/AR 模块状态」；第三章十三~十九、二十一状态下调；
+技术栈 3D/AR 行按现役 Unity 双轨重写；`unity/README.md` 加状态表并修正失效表述。
+修订记录原 8.x 顺延为 9.x。
+
+### 9.1 2026-09-11 全量审校
 
 **审校范围：** 后端全部 108 文件 + 前端全部 33 文件 + 后台全部 22 文件 + 14 迁移文件 + 7 测试文件 + 配置文件
 
@@ -532,7 +698,7 @@ AI 维修建议必须包含安全提示：
 | 迁移文件 | 未统计 | **14 个** |
 | 总行数 | 8840 | **21505** |
 
-### 8.2 新增核查项
+### 9.2 新增核查项
 
 - **维修手册 API**（`app/api/manual.py`）：5端点，含授权过滤+向量搜索+安全提示，此前标记为「未实现」，现已完成
 - **维修手册前端**（3页面）：列表+详情+分块阅读，已完成
@@ -545,7 +711,7 @@ AI 维修建议必须包含安全提示：
 - **版权合规服务**：`compliance_service.py` 资产枚举+到期巡检汇总
 - **测试套件**：从4个扩展到64个，覆盖 E2E API / 管理后台 CRUD / 限流配额 / 3D资产 / 迁移完整性 / 版权过滤
 
-### 8.3 状态修正（文档声称 → 实际）
+### 9.3 状态修正（文档声称 → 实际）
 
 | 项 | 原文档 | 实际核查 |
 |----|--------|----------|
@@ -560,17 +726,23 @@ AI 维修建议必须包含安全提示：
 | 商业化 | ⏳ Phase 3 | **✅ 完成**（订阅+支付+体验卡+企业绑定，支付SDK为stub） |
 | 版权合规 | ⏳ Phase 3 | **✅ 完成**（Mixin+迁移+校验+看板+巡检+过滤） |
 
-### 8.4 待完成项汇总
+### 9.4 待完成项汇总
 
 | # | 待完成项 | 优先级 | 说明 |
 |---|----------|--------|------|
-| 1 | ~~embed 搜索筛选 UI~~ | ~~P2~~ | ✅ 已完成（级联筛选面板） |
-| 2 | 验收测试数据集执行 | P2 | 需准备10张铭牌+20个型号 |
-| 3 | FCM/APNs 真实推送 | P2 | `push_service.py` 为 stub |
-| 4 | 支付平台真实对接 | P1 | `payment.py` 为 stub，需接入微信/支付宝/IAP |
-| 5 | AdMob SDK 集成 | P2 | `splash_ad_page.dart` 框架完成，SDK未接入 |
-| 6 | ~~subscription_levels 四级统一~~ | ~~P2~~ | ✅ 已对齐 account-system 四级体系（Free/Air/Pro/Ultra） |
-| 7 | 配件供应商信息 | P3 | 配件详情无供应商字段 |
-| 8 | 3D动画播放 | P3 | 框架已搭，TODO未实现 |
-| 9 | V3.0 AR维修 | P3 | Phase 4 |
-| 10 | 3D拆解模式模型 | P3 | 需3D模型资产 |
+| 1 | ~~3D 模型二进制缺失~~ | ~~P0~~ | ✅ 已修复（根因是 `uploads/` 被清空，按哈希找回原文件，见 8.5） |
+| 2 | ~~AR 真实尺寸无数据~~ | ~~P0~~ | ✅ 已填 8FG30 实测参数（十七章可从 ❌ 回升为 ⚠️，见下） |
+| 3 | ~~Web 渲染器迁移未提交~~ | ~~P1~~ | ✅ 已提交 |
+| 4 | ~~Three.js 本地化~~ | ~~P1~~ | ✅ 已打进 `assets/vendor/`（2.3 MB） |
+| 5 | **真机验证（含 Flutter 测试执行）** | **P1** | 本机无 Flutter SDK：改动未编译、`test/viewer/` 3 用例未跑、`asset://` 加载 ES module 的真机行为未确认 —— **这是当前最高优先级** |
+| 6 | `model_3d` 存量记录 license 复核 | P1 | 两条 `self_owned` 但资产来自 tripo3d.ai，权利存疑；脚本未擅改，需人工确认授权 |
+| 7 | 支付平台真实对接 | P1 | `payment.py` 为 stub，需接入微信/支付宝/IAP |
+| 8 | 有零件层级的模型资产 | P2 | 现有两份 GLB 均为 tripo3d 单网格，无零件/动画；需按 `docs/SOLIDWORKS_EXPORT_GUIDE.md` 从 STEP 重新导出（八部件 + 三动画） |
+| 9 | 3D 拆解模式 | P2 | Web `setExploded` 已实现，但需第 8 项的多部件模型才真正可用 |
+| 10 | 验收测试数据集执行 | P2 | 需准备10张铭牌+20个型号 |
+| 11 | FCM/APNs 真实推送 | P2 | `push_service.py` 为 stub |
+| 12 | AdMob SDK 集成 | P2 | `splash_ad_page.dart` 框架完成，SDK未接入 |
+| 13 | 配件供应商信息 | P3 | 配件详情无供应商字段 |
+| 14 | V3.0 原生 AR（ARKit/ARCore） | P3 | WebXR 在 WebView 内不可用已定论；若 AR 为主卖点需回到原生路线 |
+| 15 | ~~3D动画播放~~ | — | ✅ Web full 渲染器 `AnimationMixer` 已实现（此前标 P3 TODO 不准确） |
+| ~~—~~ | ~~embed 搜索筛选 UI~~ / ~~subscription_levels 四级统一~~ / ~~清理死代码~~ / ~~AR 技术路线决策~~ | — | ✅ 均已完成 |

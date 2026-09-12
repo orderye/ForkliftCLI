@@ -5,6 +5,15 @@ import 'unity_bridge.dart';
 
 /// 嵌入式 Unity 视图。包裹 [UnityWidget]，自动绑定 [UnityBridge]。
 ///
+/// ⚠️ **DEPRECATED** —— 请使用 `WebViewWidget` + `ViewerController` 替代。
+/// Unity 渲染器已迁移到 Web 渲染器（model-viewer + Three.js），
+/// 本类仅保留作为回退，不再维护。
+///
+/// 迁移替代：
+/// - 3D 查看器：[ThreeDViewerPageV2]
+/// - AR 实景：[ArViewPageV2]
+/// - 维修指导：[MaintenanceGuidePage]
+///
 /// 两种模式：
 /// - [enableAR=false]：纯 3D 查看器，加载 glb 模型。
 /// - [enableAR=true]：AR 实景，进入后等待平面检测与放置。
@@ -13,6 +22,7 @@ import 'unity_bridge.dart';
 /// 从后端 `/api/v1/ar/config/{forkliftModelId}` 拉取后注入，拿到配置才下发 `enterAR`。
 /// 早先版本会在配置为空时立刻下发，Unity 侧随后把 `modelContainer` 缩放成 1mm，
 /// 用户看到的是「模型缩成了一个点」。
+@deprecated('Use WebViewWidget + ViewerController instead')
 class UnityViewWrapper extends StatefulWidget {
   /// 车型 ID（用于加载 3D 模型与 AR 配置）。
   final int? forkliftModelId;

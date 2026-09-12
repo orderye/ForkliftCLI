@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ForkliftCLI Viewer (Lite)</title>
+<!--
+  model-viewer 已本地化到 assets/vendor/model-viewer/（见 vendor/README.md）。
+  原先从 unpkg CDN 加载；离线场景（车库/仓库弱网）CDN 不可达时整个 AR/3D 页面白屏。
+  版本锁定在 @google/model-viewer@3.5.0，升级时需一并替换 vendor 内的文件。
+  src 是相对本文件的相对路径：本文件以 asset:///assets/viewer_lite.html 加载，
+  与 asset:///assets/vendor/... 同源，module 脚本无需 CORS。
+-->
+<script type="module" src="vendor/model-viewer/model-viewer.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+  model-viewer { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+  #status { position: absolute; top: 8px; left: 8px; font: 12px/1.4 system-ui, sans-serif;
+            color: #a0d0ff; background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 4px;
+            pointer-events: none; max-width: 80%; z-index: 10; }
+</style>
+</head>
+<body>
+<model-viewer
+  id="mv"
+  camera-controls
+  auto-rotate
+  interaction-prompt="auto"
+  shadow-intensity="1"
+  ar
+  ar-modes="webxr scene-viewer quick-look">
+</model-viewer>
+<div id="status">加载中…</div>
+
+<script type="module">
+const mv = document.getElementById('mv');
+const status = document.getElementById('status');
+
+function setStatus(msg) { status.textContent = msg; }
+function sendEvent(name, data) {
+  try { window.FlutterViewer?.postMessage(JSON.stringify({ event: name, data: data || {} })); } catch(e){}
+}
+
+// model-viewer 事件回流
+mv.addEventListener('load', () => { setStatus('已加载'); sendEvent('onModelLoaded', { success: true }); });
+mv.addEventListener('error', (e) => {
+  setStatus('加载失败: ' + (e.detail?.error || '未知'));
+  sendEvent('onError', { message: '模型加载失败', method: 'loadModel' });
+});
+mv.addEventListener('camera-change', () => {
+  const orbit = mv.getCameraOrbit?.() ?? {theta:0, phi:0, radius:0};
+  sendEvent('onCameraChange', {
+    azimuth: orbit.theta * 180 / Math.PI,
+    polarAngle: orbit.phi * 180 / Math.PI,
+    targetDistance: orbit.radius,
+  });
+});
+mv.addEventListener('ar-status', (e) => sendEvent('onARStatus', { status: e.detail?.status || '' }));
+
+// AR 按钮（model-viewer 原生按钮）
+mv.addEventListener('click', () => { /* 模型被点击，回传 */ sendEvent('onModelTapped', {}); });
+
+// ===== Dart ↔ JS 桥 =====
+// 协议：所有方法接收单个 params 对象（callMethod 第二参）。
+const bridge = {
+  loadModel: (p) => {
+    setStatus('加载中…');
+    mv.src = p.url;
+    sendEvent('onModelLoadRequested', { url: p.url });
+  },
+
+  // azimuth→theta(绕y)、polarAngle→phi(俯仰)、targetDistance→radius，均为弧度/米，
+  // model-viewer cameraOrbit = "theta phi radius"。
+  // 注意：getCameraOrbit() 返回的是 {theta, phi, radius} 对象，不能按数组解构，
+  // 否则三个值全是 undefined、cameraOrbit 被写成 "undefinedrad ..." 直接失效。
+  setCamera: (p) => {
+    const cur = mv.getCameraOrbit?.() ?? { theta: 0, phi: 1.5, radius: 4 };
+    const theta = p.azimuth != null ? p.azimuth * Math.PI / 180 : cur.theta;
+    const phi = p.polarAngle != null ? p.polarAngle * Math.PI / 180 : cur.phi;
+    const radius = p.targetDistance != null ? p.targetDistance : cur.radius;
+    mv.cameraOrbit = `${theta}rad ${phi}rad ${radius}m`;
+    sendEvent('onCameraSet', p);
+  },
+
+  resetView: () => { mv.resetCamera?.(); sendEvent('onResetView', {}); },
+
+  // 自动旋转：model-viewer 原生能力，速度 0~100（默认 30）
+  setAutoRotate: (p) => {
+    const on = p.enabled !== false;
+    mv.autoRotate = on;
+    mv.autoRotateSpeed = p.speed ?? 30;
+    sendEvent('onAutoRotate', { enabled: on, speed: mv.autoRotateSpeed });
+  },
+
+  enterAR: () => {
+    if (typeof mv.activateAR === 'function') {
+      mv.activateAR();
+      sendEvent('onARActivated', {});
+    } else {
+      sendEvent('onError', { message: 'AR 不可用（无 AR 按钮）', method: 'enterAR' });
+    }
+  },
+
+  exitAR: () => { sendEvent('onARExitRequested', {}); },
+
+  // 轻量版不支持：高亮/爆炸/动画/测量 —— 统一回 onError
+  highlightPart: () => sendEvent('onError', { message: '当前渲染器不支持零件高亮', method: 'highlightPart' }),
+  clearHighlight: () => sendEvent('onError', { message: '当前渲染器不支持清除高亮', method: 'clearHighlight' }),
+  setExploded: () => sendEvent('onError', { message: '当前渲染器不支持爆炸图', method: 'setExploded' }),
+  playAnimation: () => sendEvent('onError', { message: '当前渲染器不支持动画', method: 'playAnimation' }),
+  stopAnimation: () => sendEvent('onError', { message: '当前渲染器不支持动画', method: 'stopAnimation' }),
+  measure: () => sendEvent('onError', { message: '当前渲染器不支持测量', method: 'measure' }),
+  clearMeasure: () => sendEvent('onError', { message: '当前渲染器不支持测量', method: 'clearMeasure' }),
+};
+
+// Flutter 注入的命令通道（由 ViewerControllerImpl 通过 runJavaScript 调用 window.flutterBridge.callMethod）
+window.flutterBridge = {
+  callMethod: (method, params) => {
+    try {
+      const fn = bridge[method];
+      if (typeof fn !== 'function') {
+        return { ok: false, error: 'Unknown method: ' + method };
+      }
+      fn(params || {});
+      return { ok: true, method };
+    } catch (e) {
+      return { ok: false, error: String(e) };
+    }
+  }
+};
+
+setStatus('就绪');
+</script>
+</body>
+</html>

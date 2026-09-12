@@ -3,7 +3,11 @@ import 'package:forklift_bao/core/models/models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
+  /// 后端基地址。后端返回的相对资源 URL（如 `/uploads/models/1/x.glb`）
+  /// 必须用它补全成绝对地址，否则 WebView 以 `file:///` 为基址时会解析成
+  /// `file:///uploads/...` 直接 404 —— 这是 3D 链路曾端到端不通的原因之一。
   static const String _baseUrl = 'http://localhost:8000';
+  static String get baseUrl => _baseUrl;
   static const String _tokenKey = 'auth_token';
 
   late final Dio _dio;

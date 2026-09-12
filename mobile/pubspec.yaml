@@ -39,9 +39,10 @@ dependencies:
   flutter_chat_ui: ^1.6.0
   flutter_chat_types: ^3.6.0
 
-  # 3D/AR
-  model_viewer_plus: ^1.7.0
-  flutter_unity_widget: ^2022.2.1
+  # 3D/AR —— 全部走 Web 渲染器（webview_flutter + assets/vendor/ 内的 Three.js / model-viewer）
+  # model_viewer_plus 已删除：lib 下 0 处引用，是 Unity 时代遗留的死依赖。
+  # flutter_unity_widget: ^2022.2.1  # DEPRECATED: 已迁移到 Web 渲染器，如需回退请取消注释
+  webview_flutter: ^4.8.0
 
   # 工具
   intl: ^0.19.0

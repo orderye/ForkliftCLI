@@ -5,6 +5,15 @@ import 'package:flutter_unity_widget/flutter_unity_widget.dart';
 
 /// Unity ↔ Flutter 通信桥。
 ///
+/// ⚠️ **DEPRECATED** —— 请使用 [UnityBridgeAdapter] 或 [ViewerController] 替代。
+/// Unity 渲染器已迁移到 Web 渲染器（model-viewer + Three.js），
+/// 本类仅保留作为回退，不再维护。
+///
+/// 迁移指南：
+/// 1. 简单查看/AR：直接用 [ViewerController]
+/// 2. 旧代码兼容：用 [UnityBridgeAdapter]（同接口，内部走 Web 渲染器）
+/// 3. 删除 flutter_unity_widget 依赖前，确认所有页面已迁移到 V2
+///
 /// 传输层由 [flutter_unity_widget] 提供：
 /// - Flutter → Unity：`controller.postMessage('UnityMessageManager',
 ///   'OnMessageFromFlutter', json)`，Unity 侧 [UnityMessageManager] 解析 JSON。
@@ -12,6 +21,7 @@ import 'package:flutter_unity_widget/flutter_unity_widget.dart';
 ///   经原生桥（Step 6）转发到 `UnityWidget.onUnityMessage`，本桥转成 Dart 流。
 ///
 /// 事件载荷统一为 `{"eventName": "...", "data": {...}}`。
+@deprecated('Use UnityBridgeAdapter or ViewerController instead')
 class UnityBridge {
   static const String _gameObject = 'UnityMessageManager';
   static const String _method = 'OnMessageFromFlutter';

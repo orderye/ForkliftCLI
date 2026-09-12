@@ -1,8 +1,73 @@
 # ForkliftCLI Unity 3D/AR 模块
 
-**版本：** 0.2.0（通信桥可用，场景待建）
+**版本：** 0.2.0
 **Unity 版本：** 2022.3.20f1 LTS
 **渲染管线：** URP 14.x
+
+## ⚠️ 当前状态（2026-09-12 实测）：已弃用，不在运行时路径上
+
+3D/AR 渲染已从 Unity 迁移到 **Web 渲染器**（`<model-viewer>` + Three.js，跑在
+`webview_flutter` 里）。当前 App 的 `/3d`、`/ar` 路由指向 V2 页面，**完全不加载本 Unity 工程**。
+
+| 事实 | 实测结论 |
+|---|---|
+| 运行路径 | `/3d` → `ThreeDViewerPageV2`，`/ar` → `ArViewPageV2`（`mobile/lib/app/router.dart`） |
+| `flutter_unity_widget` | 已在 `mobile/pubspec.yaml` 中**注释掉** |
+| `lib/core/unity/` | `UnityBridge` / `UnityViewWrapper` 已标 `@deprecated`，仅留作回退 |
+| 替代实现 | `mobile/lib/viewer/`（14 文件 / 1659 行）+ `assets/viewer_{lite,full}.html`（654 行） |
+| 迁移状态 | **未提交**：`lib/viewer/`、`assets/`、V2 页面、`test/viewer/` 均为 git untracked |
+| 包体 | Unity ~+25MB → Web ~+200KB（见 `lib/viewer/MIGRATION.md`） |
+
+### 本模块的真实完成度（代码已写，但无法上真机）
+
+- ✅ **通信桥是完整的**：`UnityMessageManager` JSON 解析/分发/错误回传，22 个已注册方法
+  （文档写的 12 个 + 额外 9 个：clearModel/setSteerAngle/resetView/setView/confirmARPlacement/
+  repositionAR/hideARDimensions/beginARGuide/endARGuide）
+- ✅ **模型加载是真实现**：GLTFast 异步导入 + 按包围盒归一 + 内容 hash 缓存；
+  `FORKLIFT_GLTFAST` 降级分支会诚实报错，不假装成功
+- ❌ **场景 0 个**：`Assets/Scenes/` 为空。`Editor/CreateScenes.cs` 只能靠人手点菜单生成，
+  且生成的场景**缺 `ModelLoader` 和 `CameraController`** → 即使跑了菜单，
+  `loadModel`/`resetView` 仍会回 `"未注册方法"`
+- ❌ **原生桥 0 个文件**：全仓库无 `.kt` / `.mm`（`NativeBridge_iOS.cs` 的
+  `DllImport("__Internal")` 没有对应实现）。Android 调 `UnityPlayer.sendMessageToFlutter`
+  会 NoSuchMethodError，iOS 链接期就失败
+- ❌ **素材 0 个**：`Materials/` `Prefabs/` `Shaders/` `Scenes/` 全空，无 URP
+  `UniversalRenderPipelineAsset`；`StreamingAssets/models/` 只有一个
+  `animation_config_template.json`
+- ❌ **GLTFast 不输出 Collider** → `CameraController.onPartClicked` 永不触发
+
+### 资产断点（2026-09-12 已修复 Web 侧，Unity 侧仍未接入）
+
+- ✅ `backend/uploads/` 此前被清空导致两条 `file_url` 404，已按 SHA256
+  从仓库根 `Glb/` 找回并放回原位（`backend/scripts/fix_3d_assets.py`，幂等）
+- ✅ `ar_model_config` 已录入 1 条（8FG30：3850×1240×2150 mm）
+- ✅ `model_3d_parts` 已按**真实节点名**写入 2 条
+- ❌ `model_3d_animations` 仍为 0 行 —— 两份 GLB 都是 tripo3d.ai 生成的
+  **单网格**资产（1 节点 / 0 动画 / 无部件层级），根本不存在可标注的动画
+- ❌ Unity `Assets/StreamingAssets/models/` 仍只有模板 JSON，
+  真实 GLB 未放入；`PartMapping.cs` 那 8 个部件名在这些资产里一个都对不上
+
+**结论：** 本目录是滞留的基础设施。要复活它，最少需要：写原生桥（Android/iOS）、
+补齐 `CreateScenes` 缺失的组件挂载、建 URP 资产与材质、导入 GLB 与元数据；
+然后还得把 Flutter 路由切回 V1。更现实的路径是走 Web 渲染器（见下）。
+
+## Web 渲染器（现役，替代本模块）
+
+见 `mobile/lib/viewer/README.md`（架构）与 `mobile/lib/viewer/MIGRATION.md`（迁移指南）。
+
+- 双渲染器插件化：`assets/viewer_lite.html`（model-viewer 3.5.0）/
+  `assets/viewer_full.html`（Three.js 0.160.0），按 `requireFeatures` 自动升级
+- 后端契约已对齐：`ModelAssetManager` → `GET /api/v1/3d/forklift/{id}`，
+  返回 `{model, parts, animations}` 与后端 `model3d.py` 完全一致
+- 已知缺口：Three.js 从 unpkg CDN 加载（**无离线**）；full 渲染器
+  `onPointerEnd` 仍是占位 → **零件点击不工作**；`navigator.xr` 的
+  immersive-ar 在 WebView 内基本不可用 → full 的 AR 是死路，只有 lite 的
+  `<model-viewer>` AR 按钮（Scene Viewer）有戏；Web 侧无透明模式、
+  无 AR 尺寸标注、无 AR 维修指导（这三项只有 Unity 侧写了实现）
+
+---
+
+# 以下为 Unity 模块原始文档（保留供回退参考）
 
 ## 目录结构
 
@@ -130,12 +195,20 @@ AR Foundation 三件套：`ARSession`、`ARCameraManager`、`ARRaycastManager`�
   并调用 `NativeBridge_iOS.SendMessageFromFlutter` 接住 Flutter → Unity 方向。
 
 这两个原生文件还没写，所以**真机上 Unity → Flutter 的事件回传是断的**，
-编辑器里只会打印到 Console。这是当前最大的未决项。
+编辑器里只会打印到 Console。
+
+> **2026-09-12 更新：** 这不再是"当前最大的未决项" —— 因为整个 Unity 模块已不在
+> 运行时路径上（见文首状态表）。实测：全仓库无 `.kt` / `.mm` 文件
+> （唯一原生文件是 `mobile/ios/Runner/GeneratedPluginRegistrant.m`），
+> Android 分支调用的 `UnityPlayer.sendMessageToFlutter` 并不存在。
+> 本段仅作为将来回退 Unity 时的任务清单保留。
 
 ## Flutter 侧
 
-`mobile/pubspec.yaml` 已添加 `flutter_unity_widget: ^2.3.0`，`flutter pub get` 后生效。
-桥接代码在 `mobile/lib/core/unity/`。
+> **2026-09-12 修正：** 本文档原先写"已添加 `flutter_unity_widget: ^2.3.0`"，**已失效**。
+> 该依赖现已在 `mobile/pubspec.yaml` 中注释掉（迁移到 Web 渲染器），
+> `lib/core/unity/` 两个类也已标记 `@deprecated`。现役代码见 `mobile/lib/viewer/`。
+> 若取消注释回退，`flutter pub get` 后才生效。
 
 ## 完整方案
 

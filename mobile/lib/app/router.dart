@@ -13,6 +13,8 @@ import 'package:forklift_bao/features/parts/parts_search_page.dart';
 import 'package:forklift_bao/features/maintenance/my_forklifts_page.dart';
 import 'package:forklift_bao/features/engine/engine_list_page.dart';
 import 'package:forklift_bao/features/threed/threed_viewer_page.dart';
+import 'package:forklift_bao/features/threed/threed_viewer_page_v2.dart';
+import 'package:forklift_bao/features/ar/ar_view_page_v2.dart';
 import 'package:forklift_bao/features/ar/ar_view_page.dart';
 import 'package:forklift_bao/features/embed/embed_search_page.dart';
 import 'package:forklift_bao/features/subscription/subscription_page.dart';
@@ -22,6 +24,9 @@ import 'package:forklift_bao/features/subscription/enterprise_page.dart';
 import 'package:forklift_bao/features/manual/manual_list_page.dart';
 import 'package:forklift_bao/features/manual/manual_detail_page.dart';
 import 'package:forklift_bao/features/manual/manual_reader_page.dart';
+import 'package:forklift_bao/viewer/viewer_demo_page.dart';
+import 'package:forklift_bao/viewer/ar_view_page.dart' as viewer_ar;
+import 'package:forklift_bao/viewer/maintenance_guide_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -78,7 +83,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/3d',
         builder: (context, state) {
           final modelId = state.uri.queryParameters['modelId'];
-          return ThreeDViewerPage(
+          return ThreeDViewerPageV2(
               forkliftModelId: modelId != null ? int.tryParse(modelId) : null);
         },
       ),
@@ -86,8 +91,45 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/ar',
         builder: (context, state) {
           final modelId = state.uri.queryParameters['modelId'];
-          return ArViewPage(
+          return ArViewPageV2(
               forkliftModelId: modelId != null ? int.tryParse(modelId) : null);
+        },
+      ),
+      // ===== 新 Viewer 模块路由（Web 渲染器，替代 Unity） =====
+      GoRoute(
+        path: '/viewer',
+        builder: (context, state) {
+          final modelUrl = state.uri.queryParameters['modelUrl'] ??
+              'https://cdn.xxx/forklift.glb';
+          final modelId = state.uri.queryParameters['modelId'];
+          return ViewerDemoPage(
+            modelUrl: modelUrl,
+            forkliftModelId: modelId != null ? int.tryParse(modelId) : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/ar-web',
+        builder: (context, state) {
+          final modelUrl = state.uri.queryParameters['modelUrl'] ??
+              'https://cdn.xxx/forklift.glb';
+          final modelId = state.uri.queryParameters['modelId'];
+          return viewer_ar.ARViewPage(
+            modelUrl: modelUrl,
+            forkliftModelId: modelId != null ? int.tryParse(modelId) : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/maintenance/:id',
+        builder: (context, state) {
+          final modelId = int.parse(state.pathParameters['id']!);
+          final modelUrl = state.uri.queryParameters['modelUrl'] ??
+              'https://cdn.xxx/forklift.glb';
+          return MaintenanceGuidePage(
+            modelUrl: modelUrl,
+            forkliftModelId: modelId,
+          );
         },
       ),
       GoRoute(
