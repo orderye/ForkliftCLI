@@ -29,6 +29,8 @@ os.environ["DATABASE_URL"] = f"sqlite:///{DB_PATH}"
 os.environ["USE_MEMORY_STORE"] = "true"
 os.environ["DEBUG"] = "false"
 os.environ["AI_API_KEY"] = ""
+# 索引同步会触发 embedding；测试用确定性伪向量，离线且不加载 WeMM 模型
+os.environ["WEMM_FAKE_EMBEDDING"] = "true"
 # 存储客户端在导入 app 时就实例化，上传目录必须指向临时目录，别写进仓库
 os.environ["UPLOAD_DIR"] = str(_TMP_DIR / "uploads")
 
@@ -221,7 +223,7 @@ class FakeRedis:
 @pytest.fixture()
 def fake_redis(monkeypatch):
     """把 rate_limit 的 Redis 换成内存替身，让 429 门禁可离线验证"""
-    import app.core.rate_limit as rate_limit
+    import forklift_shared.rate_limit as rate_limit
 
     fake = FakeRedis()
     monkeypatch.setattr(rate_limit, "_get_redis", lambda: fake)
@@ -365,12 +367,12 @@ class _FakeAccountService:
 def fake_account_service(monkeypatch):
     """把 account_client 与 proxy 的 BASE 指到本地假服务"""
     import app.api.proxy as proxy_module
-    import app.core.account_client as account_client
+    from forklift_shared import account_client as shared_account_client
 
     port = _next_port()
     service = _FakeAccountService(port)
     try:
-        monkeypatch.setattr(account_client, "BASE", service.base_url)
+        monkeypatch.setattr(shared_account_client, "_base_url", service.base_url)
         monkeypatch.setattr(proxy_module, "BASE", service.base_url)
         yield service
     finally:

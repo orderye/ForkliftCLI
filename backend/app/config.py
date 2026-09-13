@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     QDRANT_URL: str = "http://localhost:6333"
     WEMM_MODEL_NAME: str = "tencent/WeMM-Embedding-2B"
     WEMM_EMBED_DIM: int = 1024
+    WEMM_DEVICE: str = "cpu"           # cpu | cuda | mps
+    WEMM_CACHE_DIR: str = ""           # 为空时使用 HuggingFace 默认缓存目录
+    WEMM_FAKE_EMBEDDING: bool = False  # 测试/开发：不加载模型，返回确定性伪向量
     USE_MEMORY_STORE: bool = False
 
     # File Storage & 3D Assets

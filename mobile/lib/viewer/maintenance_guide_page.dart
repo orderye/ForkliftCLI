@@ -74,7 +74,9 @@ class _MaintenanceGuidePageState extends State<MaintenanceGuidePage> {
           forkliftModelId: widget.forkliftModelId!);
       return asset.fileUrl;
     }
-    return 'https://cdn.xxx/forklift.glb';
+    // 兜底：传一个非空但显然不会成功的 URL，让 loadModel 立即进入 onError 分支，
+    // 而不是用占位域名 cdn.xxx 在生产环境真去发请求（白名单域名外会被代理拦掉）。
+    return 'about:blank';
   }
 
   Future <void> _nextStep() async {

@@ -12,6 +12,8 @@ redis==5.2.1
 httpx==0.28.1
 pillow==11.0.0
 python-dotenv==1.0.1
+# 共享接入层（账户客户端/JWT验签/代理转发/等级限额的单一事实源）
+forklift-shared @ file:///Volumes/aigo%20S7%20Med/Forklift/forklift-shared
 
 # ── WeMM 多模态向量 ──────────────────────────────────────────
 qdrant-client==1.12.1

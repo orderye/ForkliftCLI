@@ -71,13 +71,19 @@ def test_no_local_router_registered_for_proxied_prefixes():
 
 
 def test_subscription_helper_is_the_live_level_source():
-    """等级判定的事实源只能是 subscription_helper，草案模块不能反客为主"""
+    """等级判定的事实源只能是 forklift_shared.subscription_helper（共享包），
+    本项目 app/core/subscription_helper.py 只应是注入本地模型的薄壳"""
     helper_src = (APP_DIR / "core" / "subscription_helper.py").read_text(encoding="utf-8")
-    draft_src = (APP_DIR / "core" / "subscription_levels.py").read_text(encoding="utf-8")
+    levels_src = (APP_DIR / "core" / "subscription_levels.py").read_text(encoding="utf-8")
 
-    assert "def effective_level" in helper_src and "get_daily_limit" in helper_src
-    assert "subscription_levels" not in helper_src, "事实源模块不应该依赖草案模块"
-    assert "subscription_helper" in draft_src, "草案模块必须写明事实源在 subscription_helper"
+    assert "forklift_shared.subscription_helper" in helper_src, (
+        "等级判定必须委托共享包 forklift_shared.subscription_helper，"
+        "禁止在本项目内再抄一份 effective_level"
+    )
+    assert "def effective_level" not in helper_src, "薄壳模块不应重新实现 effective_level"
+    assert "forklift_shared.subscription_levels" in levels_src, (
+        "等级常量单一事实源在 forklift_shared.subscription_levels，本项目只允许薄壳 re-export"
+    )
 
 
 def test_rate_limited_features_match_the_declared_set():

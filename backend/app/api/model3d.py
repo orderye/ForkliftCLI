@@ -142,10 +142,23 @@ def get_ar_config(forklift_model_id: int, db: Session = Depends(get_db), _: User
 def list_ar_models(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     """列出所有有AR配置的车型"""
     configs = db.query(ArModelConfig).all()
+    if not configs:
+        return []
+    # 单次 IN 查询拿到所有关联的 Model3D，避免 N+1。
+    # 授权过期的模型不挂载在 AR 列表上 —— AR 强调真实尺寸 1:1，没授权的资产展示无意义。
+    model_ids = {c.model_3d_id for c in configs if c.model_3d_id is not None}
+    if not model_ids:
+        return []
+    models = (
+        db.query(Model3D)
+        .filter(Model3D.id.in_(model_ids), license_active_condition(Model3D.license_expire))
+        .all()
+    )
+    model_by_id = {m.id: m for m in models}
     result = []
     for c in configs:
-        model_3d = db.query(Model3D).filter(Model3D.id == c.model_3d_id).first()
-        if model_3d:
+        model_3d = model_by_id.get(c.model_3d_id)
+        if model_3d is not None:
             result.append({
                 "config": ArConfigOut.model_validate(c),
                 "model_3d": Model3DOut.model_validate(model_3d),

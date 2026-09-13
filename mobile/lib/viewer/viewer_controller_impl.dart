@@ -22,10 +22,8 @@ import 'viewer_controller.dart';
 class ViewerControllerImpl implements ViewerController {
   ViewerControllerImpl() {
     _webView.addJavaScriptChannel(
-      JavaScriptChannel(
-        name: 'FlutterViewer',
-        onMessageReceived: _onMessageFromJS,
-      ),
+      'FlutterViewer',
+      onMessageReceived: _onMessageFromJS,
     );
   }
 
@@ -210,6 +208,12 @@ class ViewerControllerImpl implements ViewerController {
       final name = map['event'] as String?;
       if (name == null) return;
       final data = map['data'];
+      // JS 侧渲染器 init 完成（DOM 就绪、Three.js module 解析、模型加载前的握手完成）
+      // → 解除 invoke 等待。否则首次命令可能在 flutterBridge 尚未挂载时就发出。
+      if (name == 'onViewerReady') {
+        _renderer?.markReady();
+        return;
+      }
       _events.add(ViewerEvent(
         name: name,
         data: data is Map

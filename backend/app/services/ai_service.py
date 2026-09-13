@@ -14,14 +14,30 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+def _source_label(payload: dict) -> str:
+    title = (payload.get("title") or "").strip()
+    url = (payload.get("url") or "").strip()
+    if title and url:
+        return f"{title}（{url}）"
+    return title or url
+
+
 def _retrieve_context(
     query: str,
     forklift_model_id: int | None = None,
     engine_model_id: int | None = None,
     top_k: int = 5,
     db: Session | None = None,
-) -> str:
-    """用 WeMM 向量化查询，从 Qdrant 召回相关资料片段。"""
+) -> tuple[str, list[str]]:
+    """双路召回并返回可注入提示词的上下文及去重来源。"""
+    sections: list[str] = []
+    sources: list[str] = []
+
+    def add_source(payload: dict) -> None:
+        source = _source_label(payload)
+        if source and source not in sources:
+            sources.append(source)
+
     try:
         ensure_collection()
         vec = get_text_embedding(query)
@@ -31,10 +47,7 @@ def _retrieve_context(
             forklift_model_id=forklift_model_id,
             engine_model_id=engine_model_id,
         )
-        if not hits:
-            return ""
-        # 过滤授权已过期的文档（payload.doc_id → knowledge_documents.license_expire）
-        if db is not None:
+        if db is not None and hits:
             doc_ids = {h.get("payload", {}).get("doc_id") for h in hits}
             doc_ids.discard(None)
             if doc_ids:
@@ -49,20 +62,39 @@ def _retrieve_context(
                     .all()
                 }
                 hits = [h for h in hits if h.get("payload", {}).get("doc_id") not in expired_ids]
-        if not hits:
-            return ""
-        lines = []
-        for h in hits:
-            p = h.get("payload", {})
-            title = p.get("title", "")
-            text = p.get("text", "")
-            url = p.get("url", "")
-            cite = f" [来源: {url}]" if url else ""
-            lines.append(f"- {title}: {text[:300]}{cite}")
-        return "\n".join(lines)
+        if hits:
+            lines = []
+            for h in hits:
+                p = h.get("payload", {})
+                add_source(p)
+                title = p.get("title", "")
+                text = p.get("text", "")
+                url = p.get("url", "")
+                cite = f" [来源: {url}]" if url else ""
+                lines.append(f"- {title}: {text[:300]}{cite}")
+            sections.append("(WeMM 召回)\n" + "\n".join(lines))
     except Exception:
         logger.exception("WeMM vector retrieval failed (query=%s)", query[:80])
-        return ""
+
+    if db is not None:
+        try:
+            from app.core.hybrid_retriever import retrieve as hybrid_retrieve, format_for_prompt
+            zh_hits = hybrid_retrieve(
+                query,
+                db,
+                top_n=top_k,
+                forklift_model_id=forklift_model_id,
+                engine_model_id=engine_model_id,
+            )
+            for hit in zh_hits:
+                add_source(hit.get("payload", {}))
+            zh_text = format_for_prompt(zh_hits, max_chars=300)
+            if zh_text:
+                sections.append("(BM25+MiniLM 混合召回)\n" + zh_text)
+        except Exception:
+            logger.exception("hybrid retrieval failed (query=%s)", query[:80])
+
+    return "\n\n".join(s for s in sections if s), sources
 
 
 # ── diagnose 结果解析 ──────────────────────────────────────────
@@ -176,6 +208,7 @@ class AIService:
         query: str,
         forklift_model_id: int | None = None,
         engine_model_id: int | None = None,
+        retrieved_context: str = "",
     ) -> str:
         prompt = (
             "你是「ForkliftCLI」AI维修助手，专门负责叉车维修技术支持。\n"
@@ -187,9 +220,8 @@ class AIService:
         prompt += self._get_knowledge_chunks(forklift_model_id, engine_model_id)
         prompt += self._get_fault_trees(forklift_model_id, engine_model_id)
 
-        ctx = _retrieve_context(query, forklift_model_id, engine_model_id, db=self.db)
-        if ctx:
-            prompt += "\n\n检索到的相关资料:\n" + ctx
+        if retrieved_context:
+            prompt += "\n\n检索到的相关资料:\n" + retrieved_context
 
         return prompt
 
@@ -201,7 +233,13 @@ class AIService:
         engine_model_id: int | None = None,
         history: list = None,
     ) -> dict:
-        system_prompt = self._build_system_prompt(message, forklift_model_id, engine_model_id)
+        ctx, sources = _retrieve_context(
+            message,
+            forklift_model_id,
+            engine_model_id,
+            db=self.db,
+        )
+        system_prompt = self._build_system_prompt(message, forklift_model_id, engine_model_id, ctx)
 
         messages = [{"role": "system", "content": system_prompt}]
         if history:
@@ -214,13 +252,13 @@ class AIService:
 
         try:
             reply = self._call_llm(messages)
-        except Exception as e:
+        except Exception:
             logger.exception("AI chat LLM call failed")
-            reply = f"AI服务暂时不可用，请稍后重试。错误信息: {e}"
+            reply = "AI服务暂时不可用，请稍后重试。"
 
         return {
             "reply": reply,
-            "sources": [],
+            "sources": sources,
             "suggestions": [
                 "查看相关结构图",
                 "查看常见故障",
@@ -246,7 +284,12 @@ class AIService:
         system_prompt += self._get_knowledge_chunks(forklift_model_id, engine_model_id)
         system_prompt += self._get_fault_trees(forklift_model_id, engine_model_id)
 
-        ctx = _retrieve_context(symptom, forklift_model_id, engine_model_id)
+        ctx, _ = _retrieve_context(
+            symptom,
+            forklift_model_id,
+            engine_model_id,
+            db=self.db,
+        )
         if ctx:
             system_prompt += "\n\n检索到的相关资料:\n" + ctx
 
@@ -257,9 +300,9 @@ class AIService:
 
         try:
             reply = self._call_llm(messages)
-        except Exception as e:
+        except Exception:
             logger.exception("AI diagnose LLM call failed")
-            reply = f"诊断服务暂时不可用: {e}"
+            reply = "诊断服务暂时不可用，请稍后重试。"
 
         return _parse_diagnosis(reply)
 

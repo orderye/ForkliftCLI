@@ -40,8 +40,48 @@ def check_redis(timeout: float = 2.0) -> State:
         return "down"
 
 
+def check_qdrant(timeout: float = 2.0) -> State:
+    """get_collections 一次验证 Qdrant 连通性；内存存储模式下视为 not_configured"""
+    if settings.USE_MEMORY_STORE:
+        return "not_configured"
+    url = (settings.QDRANT_URL or "").strip()
+    if not url:
+        return "not_configured"
+    try:
+        from qdrant_client import QdrantClient
+
+        client = QdrantClient(url=url, timeout=timeout)
+        try:
+            client.get_collections()
+        finally:
+            client.close()
+        return "up"
+    except Exception as exc:  # noqa: BLE001 - 检查函数必须自吞异常
+        logger.debug("qdrant ping failed: %s", exc)
+        return "down"
+
+
+def check_wemm(timeout: float = 2.0) -> State:
+    """只校验 WeMM 配置合法性，不加载模型（健康检查不能触发重模型下载）"""
+    if not (settings.WEMM_MODEL_NAME or "").strip():
+        return "not_configured"
+    try:
+        from app.services.embedding_service import SUPPORTED_DIMS_2B
+
+        if int(settings.WEMM_EMBED_DIM) not in SUPPORTED_DIMS_2B:
+            return "down"
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("wemm config check failed: %s", exc)
+        return "down"
+    return "up"
+
+
 def dependency_states() -> dict[str, State]:
-    return {"redis": check_redis()}
+    return {
+        "redis": check_redis(),
+        "qdrant": check_qdrant(),
+        "wemm": check_wemm(),
+    }
 
 
 def log_dependency_states() -> None:
@@ -51,12 +91,43 @@ def log_dependency_states() -> None:
     redis_state = states["redis"]
     if redis_state == "up":
         logger.info("dependency redis: up (%s)", settings.REDIS_URL)
-        return
+    elif redis_state == "not_configured":
+        logger.warning(
+            "dependency redis: not_configured。免费版每日调用次数门禁（check_daily_call）已禁用，"
+            "所有用户按不限次处理；恢复 Redis 后自动生效，无需重启。"
+        )
+    else:
+        logger.warning(
+            "dependency redis: down (%s)。免费版每日调用次数门禁（check_daily_call）已禁用，"
+            "所有用户按不限次处理；恢复 Redis 后自动生效，无需重启。",
+            settings.REDIS_URL,
+        )
 
-    reason = "REDIS_URL 未配置" if redis_state == "not_configured" else "连接失败"
-    logger.warning(
-        "dependency redis: %s (%s)。免费版每日调用次数门禁（check_daily_call）已禁用，"
-        "所有用户按不限次处理；恢复 Redis 后自动生效，无需重启。",
-        redis_state,
-        reason,
-    )
+    qdrant_state = states["qdrant"]
+    if qdrant_state == "up":
+        logger.info("dependency qdrant: up (%s)", settings.QDRANT_URL)
+    elif qdrant_state == "not_configured":
+        logger.info(
+            "dependency qdrant: not_configured (USE_MEMORY_STORE=%s，向量仅存于进程内存)",
+            settings.USE_MEMORY_STORE,
+        )
+    else:
+        logger.warning(
+            "dependency qdrant: down (%s)。WeMM 向量召回不可用，"
+            "AI 检索将退化为 BM25+MiniLM 混合召回。",
+            settings.QDRANT_URL,
+        )
+
+    wemm_state = states["wemm"]
+    if wemm_state == "up":
+        logger.info(
+            "dependency wemm: up (model=%s dim=%s device=%s)",
+            settings.WEMM_MODEL_NAME,
+            settings.WEMM_EMBED_DIM,
+            settings.WEMM_DEVICE,
+        )
+    else:
+        logger.warning(
+            "dependency wemm: %s。多模态向量召回与 embedding 接口不可用。",
+            wemm_state,
+        )

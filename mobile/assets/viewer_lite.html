@@ -130,6 +130,9 @@ window.flutterBridge = {
 };
 
 setStatus('就绪');
+// 通知 Dart 渲染器已就绪：解除 ViewerController.invoke 里的 await。
+// 必须放在 window.flutterBridge 挂载之后、所有 Dart 命令之前。
+sendEvent('onViewerReady', {});
 </script>
 </body>
 </html>

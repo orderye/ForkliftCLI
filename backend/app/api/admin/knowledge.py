@@ -10,6 +10,7 @@ from app.api.admin.common import client_ip, paginate, safe_like, snapshot, valid
 from app.core.admin_auth import require_admin, AdminPrincipal
 from app.core.database import get_db
 from app.core.error_handler import safe_api
+from app.services.knowledge_index_service import delete_document_index, sync_document_index
 from app.models.ai import (
     FaultCode,
     FaultTree,
@@ -69,6 +70,7 @@ def create_document(data: KnowledgeDocCreate, request: Request, db: Session = De
     db.add(doc)
     db.commit()
     db.refresh(doc)
+    sync_document_index(db, doc.id, rebuild_chunks=True)
     write_audit(db, admin_id=admin.id, action="create", target_type="knowledge_document",
                 target_id=doc.id, after=snapshot(doc), ip=client_ip(request))
     return doc
@@ -87,10 +89,12 @@ def update_document(doc_id: int, data: KnowledgeDocUpdate, request: Request, db:
     validate_copyright(fields, current=doc)
 
     before = snapshot(doc)
+    content_changed = "content" in fields
     for key, value in fields.items():
         setattr(doc, key, value)
     db.commit()
     db.refresh(doc)
+    sync_document_index(db, doc.id, rebuild_chunks=content_changed)
     write_audit(db, admin_id=admin.id, action="update", target_type="knowledge_document",
                 target_id=doc.id, before=before, after=snapshot(doc), ip=client_ip(request))
     return doc
@@ -103,7 +107,7 @@ def delete_document(doc_id: int, request: Request, db: Session = Depends(get_db)
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
     before = snapshot(doc)
-    # 同步清理分块（模型未定义 relationship，显式删除）
+    delete_document_index(doc_id)
     db.query(KnowledgeChunk).filter(KnowledgeChunk.document_id == doc_id).delete()
     db.delete(doc)
     db.commit()

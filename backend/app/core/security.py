@@ -1,84 +1,84 @@
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+"""用户 JWT 验签 + 投影加载 — 薄壳：实现在 forklift_shared。
 
-import bcrypt
-from jose import JWTError, jwt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
+token 由 account-service 签发，本地只验签不重签；查本地投影表（users）。
+跨端回填：用户若经 forkliftTool 等其他入口注册，本地投影缺失时按 token 从
+account-service /public/me 拉取资料补建，保证业务外键即刻可用（改资料/等级
+仍以 account-service 为权威，下次登录/心跳会覆盖）。
+"""
+from fastapi import HTTPException, status as http_status
+
+from forklift_shared.security import build_get_current_user, make_oauth2_scheme
+from forklift_shared import security as _shared_security
+from forklift_shared.subscription_helper import parse_dt
 
 from app.config import get_settings
 from app.core.database import get_db
-from app.models.user import User
 
 settings = get_settings()
 ALGORITHM = settings.ALGORITHM
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+oauth2_scheme = make_oauth2_scheme()
 
 
-def hash_password(password: str) -> str:
-    # 仅兼容保留；本地不再存密码，认证已委托 account-service
-    return bcrypt.hashpw(password.encode("utf-8")[:72], bcrypt.gensalt()).decode("utf-8")
-
-
-def verify_password(plain: str, hashed: str) -> bool:
-    try:
-        return bcrypt.checkpw(plain.encode("utf-8")[:72], hashed.encode("utf-8"))
-    except ValueError:
-        return False
-
-
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
-    # 仅兼容保留；实际 token 由 account-service 签发
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (
-        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+def create_access_token(data: dict, expires_delta=None) -> str:
+    """测试/兼容用本地签发（旧签名）；生产 token 一律由 account-service 签发。"""
+    return _shared_security.create_access_token(
+        data,
+        secret=settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
+        expires_delta=expires_delta,
     )
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 
-def _decode_token(token: str) -> dict:
+def _backfill_projection(db, token: str, phone: str):
+    """投影缺失时从 account-service 补建；任何失败都回落为 None（401）。"""
+    from app.core.account_client import get as acct_get
+    from app.models.user import User
+
     try:
-        return jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="无效的认证凭据",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        info = acct_get("/public/me", token=token)
+    except Exception:
+        return None
+    user_info = info.get("user") or {}
+    if not user_info.get("id"):
+        return None
+    sub = info.get("subscription") or {}
+    user = User(
+        id=user_info["id"],
+        phone=phone,
+        email=user_info.get("email") or "",
+        nickname=user_info.get("nickname") or "",
+        avatar=user_info.get("avatar_url") or "",
+        subscription_level=sub.get("level") or "free",
+        subscription_expires_at=parse_dt(sub.get("expires_at")),
+        is_active=user_info.get("is_active", True),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
 
 
-def get_current_user(
-    token: Optional[str] = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
-) -> User:
-    """本地验签 account-service 签发的 JWT，并从本地投影表加载用户。"""
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="缺少认证令牌",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    payload = _decode_token(token)
-    phone = payload.get("sub")
-    if not phone:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="令牌中缺少用户标识",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    user = db.query(User).filter(User.phone == phone).first()
+def _load_user(db, token, payload):
+    from app.models.user import User
+
+    user = db.query(User).filter(User.phone == payload.get("sub")).first()
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户不存在，请重新登录",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        user = _backfill_projection(db, token, payload.get("sub"))
+        if user is None:
+            return None
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
             detail="账号已停用，请联系管理员",
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+get_current_user = build_get_current_user(
+    secret=settings.SECRET_KEY,
+    algorithm=settings.ALGORITHM,
+    scheme=oauth2_scheme,
+    db_dependency=get_db,
+    loader=_load_user,
+)

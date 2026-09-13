@@ -21,7 +21,7 @@ def test_health_and_root(client):
     """status 恒为 ok（探活语义），依赖状态单独在 dependencies 里"""
     body = client.get("/health").json()
     assert body["status"] == "ok"
-    assert set(body["dependencies"]) == {"redis"}
+    assert set(body["dependencies"]) == {"redis", "qdrant", "wemm"}
     assert body["dependencies"]["redis"] in {"up", "down", "not_configured"}
 
     root = client.get("/").json()
@@ -452,7 +452,8 @@ def test_manuals_list_and_chunks(client, catalog, owner):
 
     chunks = client.get(f"/api/v1/manuals/{doc_id}/chunks", headers=headers)
     assert chunks.status_code == 200
-    assert chunks.json() == []
+    # 创建文档后索引同步会按「。」自动分块
+    assert [item["text"] for item in chunks.json()] == ["第一段内容。", "第二段内容。"]
 
     assert client.get("/api/v1/manuals/99999", headers=headers).status_code == 404
 

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../viewer/bridge/js_bridge.dart' show ViewerEvent;
 import '../../viewer/config/viewer_config.dart';
 import '../../viewer/model_asset_manager.dart';
 import '../../viewer/viewer_controller.dart';
@@ -22,6 +25,7 @@ class ThreeDViewerPageV2 extends StatefulWidget {
 
 class _ThreeDViewerPageV2State extends State<ThreeDViewerPageV2> {
   final ViewerController _viewer = ViewerControllerImpl();
+  StreamSubscription<ViewerEvent>? _eventsSub;
 
 
   ModelAsset? _asset;
@@ -75,7 +79,7 @@ class _ThreeDViewerPageV2State extends State<ThreeDViewerPageV2> {
   }
 
   void _listenEvents() {
-    _viewer.events.listen((event) {
+    _eventsSub = _viewer.events.listen((event) {
       switch (event.name) {
         case 'onModelLoaded':
           final parts = event.data['parts'];
@@ -142,6 +146,7 @@ class _ThreeDViewerPageV2State extends State<ThreeDViewerPageV2> {
 
   @override
   void dispose() {
+    _eventsSub?.cancel();
     _viewer.dispose();
     super.dispose();
   }
@@ -184,13 +189,10 @@ class _ThreeDViewerPageV2State extends State<ThreeDViewerPageV2> {
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? _buildErrorView()
-              : Stack(
-                  children: [
-                    WebViewWidget(controller: _viewer.webView),
-                    if (_showPartsList) _buildPartsPanel(),
-                  ],
-                ),
-      bottomSheet: _showPartsList ? _buildPartsPanelBottom() : null,
+              : WebViewWidget(controller: _viewer.webView),
+      // parts panel 走 Scaffold.bottomSheet 单点显示，不在 Stack 里再叠一份
+      // （早先两个入口都渲染，会出现两块半透明 panel 互相遮罩的问题）。
+      bottomSheet: _showPartsList ? _buildPartsPanel() : null,
     );
   }
 
@@ -299,14 +301,6 @@ class _ThreeDViewerPageV2State extends State<ThreeDViewerPageV2> {
           ],
         ],
       ),
-    );
-  }
-
-  Widget _buildPartsPanelBottom() {
-    return Container(
-      height: 250,
-      padding: const EdgeInsets.all(12),
-      child: _buildPartsPanel(),
     );
   }
 }

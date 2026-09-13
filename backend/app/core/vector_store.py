@@ -32,12 +32,20 @@ def ensure_collection(client: QdrantClient | None = None) -> None:
     if USE_MEMORY_STORE:
         memory_ensure_collection(COLLECTION)
         return
-    
+
     client = client or get_qdrant()
     if not client.collection_exists(COLLECTION):
         client.create_collection(
             collection_name=COLLECTION,
             vectors_config=VectorParams(size=EMBED_DIM, distance=Distance.COSINE),
+        )
+        return
+
+    size = client.get_collection(COLLECTION).config.params.vectors.size
+    if size != EMBED_DIM:
+        raise RuntimeError(
+            f"Qdrant collection '{COLLECTION}' 向量维度 {size} 与 WEMM_EMBED_DIM={EMBED_DIM} 不一致，"
+            "请重建 collection 或调整 WEMM_EMBED_DIM"
         )
 
 
@@ -89,19 +97,24 @@ def _build_filter(forklift_model_id: int | None = None, engine_model_id: int | N
 
 
 def delete_by_document(document_id: int, client: QdrantClient | None = None) -> int:
-    """删除指定知识文档的全部向量点。"""
+    """删除指定知识文档的全部向量点，返回实际删除数量。"""
     if USE_MEMORY_STORE:
         return memory_delete_by_document(document_id, COLLECTION)
     client = client or get_qdrant()
     if not client.collection_exists(COLLECTION):
         return 0
-    client.delete(
-        collection_name=COLLECTION,
-        points_selector=Filter(
-            must=[FieldCondition(key="doc_id", match=MatchValue(value=document_id))]
-        ),
-    )
-    return 1
+    must = [FieldCondition(key="doc_id", match=MatchValue(value=document_id))]
+    deleted = client.count(
+        COLLECTION,
+        count_filter=Filter(must=must),
+        exact=True,
+    ).count
+    if deleted:
+        client.delete(
+            collection_name=COLLECTION,
+            points_selector=Filter(must=must),
+        )
+    return deleted
 
 
 def search_similar(

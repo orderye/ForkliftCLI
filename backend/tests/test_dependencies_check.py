@@ -68,8 +68,19 @@ def test_successful_ping_reports_up(monkeypatch):
 
 def test_dependency_states_exposes_redis():
     states = dependencies_check.dependency_states()
-    assert set(states) == {"redis"}
-    assert states["redis"] in {"up", "down", "not_configured"}
+    assert {"redis", "qdrant", "wemm"} <= set(states)
+    for state in states.values():
+        assert state in {"up", "down", "not_configured"}
+
+
+def test_qdrant_not_configured_in_memory_store(monkeypatch):
+    monkeypatch.setattr(dependencies_check.settings, "USE_MEMORY_STORE", True)
+    assert dependencies_check.check_qdrant() == "not_configured"
+
+
+def test_wemm_rejects_unsupported_dim(monkeypatch):
+    monkeypatch.setattr(dependencies_check.settings, "WEMM_EMBED_DIM", 768)
+    assert dependencies_check.check_wemm() == "down"
 
 
 def test_log_down_emits_warning_naming_the_disabled_gate(monkeypatch):

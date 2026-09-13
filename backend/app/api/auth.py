@@ -1,10 +1,14 @@
-"""认证路由 — 注册 / 登录 / 用户资料（委托 account-service）"""
+"""认证路由 — 注册 / 登录 / 用户资料 / 心跳（委托 account-service）"""
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.account_client import post, get, put
-from app.core.security import get_current_user
+from app.core.security import get_current_user, oauth2_scheme
+from app.core.subscription_helper import effective_level, parse_dt
 from app.models.user import User
 from app.schemas.auth import (
     UserRegister,
@@ -117,3 +121,56 @@ def update_profile(
     db.commit()
     db.refresh(current_user)
     return current_user
+
+
+# ── 心跳：客户端定期刷新投影等级（与 forkliftTool 对齐，防投影漂移） ──
+
+class HeartbeatIn(BaseModel):
+    app_id: str = ""
+    device_id: str = ""
+    app_version: str = ""
+    previous_level: str = ""
+
+
+class HeartbeatOut(BaseModel):
+    user_id: int
+    effective_level: str
+    expires_at: datetime | None
+    level_changed: bool
+    previous_level: str
+    fetched_at: datetime
+
+
+@router.post("/heartbeat", response_model=HeartbeatOut, summary="心跳：刷新订阅等级")
+def heartbeat(
+    data: HeartbeatIn,
+    token: str | None = Depends(oauth2_scheme),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """从 account-service /public/me/subscription 拉取实时等级刷新本地投影。
+
+    account-service 是唯一权威；投影表只用于本地配额门禁，定期心跳避免漂移。
+    """
+    try:
+        sub = get("/public/me/subscription", token=token)
+    except HTTPException as exc:
+        if exc.status_code >= 500 or exc.status_code == 401:
+            raise
+        sub = {}  # 账户级错误（如禁用）不阻断心跳，保留本地投影现值
+
+    if sub.get("level"):
+        current_user.subscription_level = sub["level"]
+        current_user.subscription_expires_at = parse_dt(sub.get("expires_at"))
+        db.commit()
+        db.refresh(current_user)
+
+    level = effective_level(current_user)
+    return HeartbeatOut(
+        user_id=current_user.id,
+        effective_level=level,
+        expires_at=current_user.subscription_expires_at if level != "free" else None,
+        level_changed=bool(data.previous_level) and data.previous_level != level,
+        previous_level=data.previous_level,
+        fetched_at=datetime.now(timezone.utc),
+    )

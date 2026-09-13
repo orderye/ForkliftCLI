@@ -219,10 +219,8 @@ async function loadModel(url) {
   }
 
   const loader = new GLTFLoader();
-  // 启用 Draco 解码
-  const draco = new DRACOLoader();
-  draco.setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/');
-  loader.setDRACOLoader(draco);
+  // 当前资产 extensionsUsed 为空、未启用 KHR_draco_mesh_compression，
+  // 故不挂 DRACOLoader；如未来需要，按 vendor/README.md 升级流程加入本地解码器。
 
   try {
     const gltf = await loader.loadAsync(url);
@@ -422,14 +420,21 @@ function setExploded(progress) {
 
   // 如果还没有爆炸数据，自动构建
   if (explodeData.size === 0) {
-    const center = new THREE.Vector3();
+    // 取整个模型根节点的中心作为爆炸原点；每个零件的方向 = 零件中心 - 模型中心。
+    // 先用一个临时 Box3 收集整体包围盒（注意：loadModel 里已经 normalizeScale + 居中，
+    // 但 normalize 后的中心可能不是 (0,0,0)，所以必须显式计算）。
+    const modelBox = new THREE.Box3().setFromObject(modelRoot);
+    const modelCenter = new THREE.Vector3();
+    modelBox.getCenter(modelCenter);
+    const partCenter = new THREE.Vector3();
     modelRoot.traverse(obj => {
       if (!obj.isMesh) return;
       const box = new THREE.Box3().setFromObject(obj);
-      box.getCenter(center);
-      // 方向：从模型中心指向零件中心
-      const dir = new THREE.Vector3().subVectors(center, new THREE.Vector3(0, 0, 0)).normalize();
-      if (dir.length() === 0) dir.set(0, 0, 1);
+      box.getCenter(partCenter);
+      // 方向：从模型整体中心指向零件中心；零向量则给个默认 +Z 兜底。
+      const dir = partCenter.clone().sub(modelCenter);
+      if (dir.lengthSq() === 0) dir.set(0, 0, 1);
+      dir.normalize();
       explodeData.set(obj, {
         originalPos: obj.position.clone(),
         direction: dir,
@@ -607,6 +612,10 @@ window.flutterBridge = {
 
 // 启动
 init();
+// 通知 Dart 渲染器已就绪：解除 ViewerController.invoke 里的 await。
+// 必须在 init() 之后发送，此时 WebGL 上下文、OrbitControls、地面、灯光都已就位，
+// 第一条 Dart→JS 命令可以安全执行。
+sendEvent('onViewerReady', {});
 </script>
 </body>
 </html>

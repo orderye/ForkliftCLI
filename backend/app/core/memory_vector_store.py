@@ -173,6 +173,14 @@ def delete_by_document(document_id: int, collection_name: str = "forklift_multim
     store.collections[collection_name]["vectors_count"] = len(store.points[collection_name])
     return before - len(store.points[collection_name])
 
+def clear_collection(collection_name: str = "forklift_multimodal") -> None:
+    """清空集合中的全部点（保留集合本身），用于缓存失效后全量重建。"""
+    store = get_memory_store()
+    if collection_name in store.points:
+        store.points[collection_name] = []
+    if collection_name in store.collections:
+        store.collections[collection_name]["vectors_count"] = 0
+
 def search_similar(
     vector: List[float],
     top_k: int = 5,

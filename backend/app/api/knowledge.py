@@ -9,6 +9,7 @@ from typing import List, Optional
 from app.api.admin.common import client_ip, paginate, snapshot, validate_copyright, write_audit
 from app.core.admin_auth import require_admin
 from app.core.database import get_db
+from app.services.knowledge_index_service import delete_document_index, sync_document_index
 from app.models.ai import KnowledgeDocument, KnowledgeChunk
 from app.models.user import User
 from app.schemas.admin import (
@@ -73,6 +74,7 @@ def create_document(
     db.add(doc)
     db.commit()
     db.refresh(doc)
+    sync_document_index(db, doc.id, rebuild_chunks=True)
     write_audit(
         db,
         admin_id=admin.id,
@@ -103,10 +105,12 @@ def update_document(
     validate_copyright(fields, current=doc)
 
     before = snapshot(doc)
+    content_changed = "content" in fields
     for key, value in fields.items():
         setattr(doc, key, value)
     db.commit()
     db.refresh(doc)
+    sync_document_index(db, doc.id, rebuild_chunks=content_changed)
     write_audit(
         db,
         admin_id=admin.id,
@@ -131,7 +135,7 @@ def delete_document(
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
     before = snapshot(doc)
-    # 同步清理分块
+    delete_document_index(doc_id)
     db.query(KnowledgeChunk).filter(KnowledgeChunk.document_id == doc_id).delete()
     db.delete(doc)
     db.commit()

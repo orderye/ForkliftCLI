@@ -15,10 +15,6 @@ class ThreeJSRenderer extends ViewerRenderer {
   @override
   RendererTier get tier => RendererTier.full;
 
-  // Three.js 体积大，加载 + 模块解析需要更长的就绪时间。
-  @override
-  Duration get initDelay => const Duration(seconds: 1);
-
   @override
   Future<void> loadModel(String url, {String? modelId, String? format}) =>
       invoke('loadModel', {'url': url, 'modelId': modelId, 'format': format});

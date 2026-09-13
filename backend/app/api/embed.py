@@ -16,16 +16,30 @@ from app.models.user import User
 
 router = APIRouter(prefix="/embed", tags=["多模态向量"])
 
-_DATA_URI_RE = re.compile(r"^data:[^;]*;base64,")
+_DATA_URI_RE = re.compile(r"^data:[^;]+;base64,", re.IGNORECASE)
+_MAX_IMAGE_BYTES = 8 * 1024 * 1024
+_MAX_IMAGE_PIXELS = 20_000_000
+_ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP"}
 
 
 def _decode_image(b64: str) -> Image.Image:
-    b64 = _DATA_URI_RE.sub("", b64.strip())
+    encoded = _DATA_URI_RE.sub("", b64.strip())
     try:
-        raw = base64.b64decode(b64)
-        return Image.open(BytesIO(raw))
+        raw = base64.b64decode(encoded, validate=True)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"invalid image: {e}")
+        raise HTTPException(status_code=400, detail="invalid image base64") from e
+    if len(raw) > _MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="image is too large")
+    try:
+        image = Image.open(BytesIO(raw))
+        image.load()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="invalid image") from e
+    if image.format not in _ALLOWED_IMAGE_FORMATS:
+        raise HTTPException(status_code=400, detail="unsupported image format")
+    if image.width * image.height > _MAX_IMAGE_PIXELS:
+        raise HTTPException(status_code=413, detail="image has too many pixels")
+    return image
 
 
 @router.post("", response_model=EmbedResponse)
@@ -36,7 +50,7 @@ def embed(
 ) -> EmbedResponse:
     check_daily_call(current_user.id, "embed")  # 免费版每日 3 次
     if req.text:
-        return EmbedResponse(vector=get_text_embedding(req.text))
+        return EmbedResponse(vector=get_text_embedding(req.text.strip()))
     if req.image_base64:
         return EmbedResponse(vector=get_image_embedding(_decode_image(req.image_base64)))
     raise HTTPException(status_code=400, detail="text or image_base64 required")
@@ -50,7 +64,7 @@ def search(
 ) -> SearchResponse:
     check_daily_call(current_user.id, "embed_search")
     if req.query_text:
-        vec = get_text_embedding(req.query_text)
+        vec = get_text_embedding(req.query_text.strip())
     elif req.query_image_base64:
         vec = get_image_embedding(_decode_image(req.query_image_base64))
     else:

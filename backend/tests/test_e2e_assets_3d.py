@@ -241,3 +241,140 @@ def test_admin_models3d_update_and_delete_cascades(client, db_session):
     # 零件随 relationship cascade 一起删除
     assert client.get(f"/api/v1/3d/models/{model_id}/parts", headers=h).json() == []
     assert client.delete(f"/api/v1/admin/assets/models3d/{model_id}", headers=ah).status_code == 404
+
+
+# ========== P1-6: list_ar_models N+1 与授权过滤 ==========
+#
+# 修复前：list_ar_models 对每个 ArModelConfig 单独查 Model3d，N+1。
+# 修复后：单次 IN 查询；同时过滤掉 license_expire <= now 的模型。
+# 这条用例同时验证：返回数量正确、不返回过期模型、未注册 AR 的车型不影响。
+# 直接 query count 不靠谱（SQLAlchemy session 有缓存），改用事件探针：
+# 监听 engine 的 before_cursor_execute 事件统计 SELECT 数量，确保即使有 N 个
+# ArModelConfig 也只产生少量 Model3D 查询。
+
+
+def _attach_select_counter(db_session):
+    """挂一个 SELECT 语句计数器到 engine，返回计数器与卸载函数。"""
+    from sqlalchemy import event
+
+    counter = {"selects": 0, "tables": []}
+
+    def _record(conn, cursor, statement, params, context, executemany):
+        if not statement.lstrip().upper().startswith("SELECT"):
+            return
+        counter["selects"] += 1
+        # 抓表名（粗略，按 FROM 之后到 WHERE 之前的 token）
+        upper = statement.upper()
+        if "FROM MODEL_3D" in upper or "FROM MODEL_3D " in upper:
+            counter["tables"].append("model_3d")
+
+    engine = db_session.get_bind()
+    event.listen(engine, "before_cursor_execute", _record)
+
+    def _uninstall():
+        event.remove(engine, "before_cursor_execute", _record)
+
+    return counter, _uninstall
+
+
+def test_list_ar_models_uses_single_query_and_filters_expired(client, db_session, catalog):
+    """P1-6 修复回归。
+
+    1) 多条 ArModelConfig 必须只产生 1 条 SELECT model_3d 查询（去 N+1）；
+    2) license_expire <= now 的模型不应出现在列表中；
+    3) list_ar_models 整体在无任何 AR 配置时返回空列表（边界）。
+    """
+    from app.models.model3d import ArModelConfig, Model3D
+
+    h = uploader_headers("13900009910")
+    # 上传 3 个模型：2 个有 AR 配置（1 个授权永久、1 个授权过期），1 个无 AR 配置。
+    m_forever = upload(client, h, "ar-forever", forklift_model_id=catalog["model_id"]).json()["id"]
+    m_expired = upload(client, h, "ar-expired").json()["id"]
+    m_no_ar = upload(client, h, "no-ar").json()["id"]
+
+    db_session.add(ArModelConfig(model_3d_id=m_forever, forklift_model_id=catalog["model_id"]))
+    db_session.add(ArModelConfig(model_3d_id=m_expired, forklift_model_id=catalog["model_id"]))
+    # 把 m_expired 的 license_expire 设为过去
+    db_session.query(Model3D).filter(Model3D.id == m_expired).update(
+        {"license_expire": datetime.now(timezone.utc) - timedelta(days=1)}
+    )
+    db_session.commit()
+
+    counter, uninstall = _attach_select_counter(db_session)
+    try:
+        resp = client.get("/api/v1/ar/models", headers=h)
+    finally:
+        uninstall()
+
+    assert resp.status_code == 200, resp.text
+    items = resp.json()
+    # 修复后：1 条 ArModelConfig（m_forever）+ 1 条（m_expired 但被过滤）→ 实际
+    # 列表里只有 m_forever。m_no_ar 没注册 AR 配置，不在考虑范围。
+    returned_model_ids = [it["model_3d"]["id"] for it in items]
+    assert m_forever in returned_model_ids
+    assert m_expired not in returned_model_ids, "授权过期的模型不应进入 AR 列表"
+    assert m_no_ar not in returned_model_ids
+
+    # 核心断言：单次 SELECT model_3d 拉走所有关联的 model。
+    # 注意：list_ar_models 还有「configs 列表」+「model_by_id」两次查询，
+    # 但对 model_3d 表的 SELECT 应当 ≤ 1。
+    model_3d_selects = counter["tables"].count("model_3d")
+    assert model_3d_selects <= 1, (
+        f"list_ar_models 触发 {model_3d_selects} 次 model_3d SELECT，"
+        f"出现 N+1 回归。完整 SELECT 序列：{counter}"
+    )
+
+
+def test_list_ar_models_empty_when_no_configs(client, db_session):
+    """边界：没有任何 ArModelConfig 时返回空数组而非 500。"""
+    h = uploader_headers("13900009911")
+    # 确保干净：删掉测试期间已建的 ArModelConfig（其它测试可能残留）。
+    from app.models.model3d import ArModelConfig
+    db_session.query(ArModelConfig).delete()
+    db_session.commit()
+
+    resp = client.get("/api/v1/ar/models", headers=h)
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+# ========== P0-1: DRACOLoader 已删除 —— GLB 上传回归 ==========
+#
+# 修复前 viewer_full.html 引用未导入的 DRACOLoader，加载压缩 GLB 会 ReferenceError。
+# 修复后删除 DRACOLoader 相关代码；后端 _validate_model_bytes 已用 magic 校验。
+# 验证：DRACOLoader 路径不会污染上传链路，合法 GLB 仍能上传、合法 JSON glTF
+# 也能上传，magic 校验（GLB 与 glTF JSON）正常工作。
+
+
+def test_glb_upload_works_after_draco_removal(client, db_session, catalog):
+    """P0-1 回归：DRACOLoader 路径删除后，后端 GLB 上传链路仍然完整。
+
+    前端不再尝试启用 Draco 解码，模型必须在未启用 Draco 压缩的前提下可加载。
+    这里直接验证最简合法 GLB（仅有 glTF magic）能被后端接受。
+    """
+    h = uploader_headers("13900009912")
+    # 最小合法 GLB：12 字节头（magic + version + declared_length），无需 JSON chunk。
+    # 后端只校验前 4 字节 magic 与文件长度 ≥ 12。
+    minimal_glb = b"glTF" + (2).to_bytes(4, "little") + (12).to_bytes(4, "little")
+    files = {"file": ("min.glb", minimal_glb, "model/gltf-binary")}
+    data = {
+        "name": "DRACO 修复回归",
+        "format": "glb",
+        "forklift_model_id": str(catalog["model_id"]),
+    }
+    resp = client.post("/api/v1/3d/upload", headers=h, files=files, data=data)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["format"] == "glb"
+    assert body["content_hash"]
+    assert body["file_url"].startswith("/uploads/models/")
+
+    # 反向：声称 glb 但内容是文本（缺 magic）必须被 400 拒，与 magic 校验一致。
+    bad = client.post(
+        "/api/v1/3d/upload", headers=h,
+        data={"name": "假 GLB", "format": "glb",
+              "forklift_model_id": str(catalog["model_id"])},
+        files={"file": ("x.glb", b"not a glb", "model/gltf-binary")},
+    )
+    assert bad.status_code == 400
+    assert "GLB" in bad.text

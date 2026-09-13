@@ -206,7 +206,7 @@ def test_paid_user_is_not_rate_limited(client, fake_redis, monkeypatch):
 def test_daily_limit_fails_open_when_redis_is_down(client, monkeypatch):
     """Redis 挂掉时放行而不是把付费功能一起打挂（fail-open）"""
     import app.api.embed as embed_api
-    import app.core.rate_limit as rate_limit
+    import forklift_shared.rate_limit as rate_limit
 
     monkeypatch.setattr(embed_api, "get_text_embedding", lambda _text: [0.01] * 384)
     monkeypatch.setattr(rate_limit, "_get_redis", lambda: (_ for _ in ()).throw(ConnectionError("redis down")))

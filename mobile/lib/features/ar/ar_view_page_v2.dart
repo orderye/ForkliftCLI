@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../core/api/api_client.dart';
+import '../../viewer/bridge/js_bridge.dart' show ViewerEvent;
 import '../../viewer/config/viewer_config.dart';
 import '../../viewer/model_asset_manager.dart';
 import '../../viewer/viewer_controller.dart';
@@ -22,6 +25,7 @@ class ArViewPageV2 extends StatefulWidget {
 
 class _ArViewPageV2State extends State<ArViewPageV2> {
   final ViewerController _viewer = ViewerControllerImpl();
+  StreamSubscription<ViewerEvent>? _eventsSub;
 
 
   Map<String, dynamic>? _arConfig;
@@ -89,7 +93,7 @@ class _ArViewPageV2State extends State<ArViewPageV2> {
   }
 
   void _listenEvents() {
-    _viewer.events.listen((event) {
+    _eventsSub = _viewer.events.listen((event) {
       switch (event.name) {
         case 'onARActivated':
           setState(() => _arActive = true);
@@ -111,6 +115,7 @@ class _ArViewPageV2State extends State<ArViewPageV2> {
 
   @override
   void dispose() {
+    _eventsSub?.cancel();
     _viewer.dispose();
     super.dispose();
   }

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'bridge/js_bridge.dart' show ViewerEvent;
 import 'model_asset_manager.dart';
 import 'viewer_controller.dart';
 import 'viewer_controller_impl.dart';
@@ -20,6 +23,7 @@ class ARViewPage extends StatefulWidget {
 
 class _ARViewPageState extends State<ARViewPage> {
   final ViewerController _viewer = ViewerControllerImpl();
+  StreamSubscription<ViewerEvent>? _eventsSub;
 
   bool _loading = true;
   String? _status;
@@ -29,7 +33,7 @@ class _ARViewPageState extends State<ARViewPage> {
   void initState() {
     super.initState();
     _initViewer();
-    _viewer.events.listen((event) {
+    _eventsSub = _viewer.events.listen((event) {
       switch (event.name) {
         case 'onARActivated':
           if (mounted) setState(() { _arActive = true; _setStatus('AR 已激活'); });
@@ -83,6 +87,7 @@ class _ARViewPageState extends State<ARViewPage> {
 
   @override
   void dispose() {
+    _eventsSub?.cancel();
     _viewer.dispose();
     super.dispose();
   }

@@ -167,10 +167,12 @@ class UnityBridgeAdapter {
       _viewer.setCamera(azimuth: yaw, polarAngle: pitch, targetDistance: distance);
 
   /// 清除已加载模型。
-  Future <void> clearModel() async {
-    // ViewerController 没有 clearModel，通过加载空 URL 模拟
-    // 或者调用 dispose + init 重新初始化
-    await _viewer.loadModel('', modelId: '0');
+  ///
+  /// ViewerController 没有 clearModel API。最稳妥的方式是 dispose + 重新构造：
+  /// 与切换渲染器时的内部动作一致（_renderer.dispose() + 新建渲染器 + init HTML），
+  /// 同一 WebViewController 仍由 ViewerControllerImpl 持有，页面层不需要重建。
+  Future<void> clearModel() async {
+    await _viewer.dispose();
   }
 
   /// AR 维修指导：显示步骤（忽略，Web 渲染器暂不支持）。
