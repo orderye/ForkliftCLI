@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -107,8 +108,10 @@ class HomePage extends StatelessWidget {
                 _buildFeatureCard(context, Icons.settings, '配件查询', '/parts'),
                 _buildFeatureCard(
                     context, Icons.engineering, '发动机', '/engines'),
-                _buildFeatureCard(context, Icons.view_in_ar, '3D叉车', '/3d'),
-                _buildFeatureCard(context, Icons.view_in_ar, 'AR实景', '/ar'),
+                _buildFeatureCard(context, Icons.view_in_ar, '3D叉车', '/3d',
+                    onTap: () => _open3dApp(context, '3d', '/3d')),
+                _buildFeatureCard(context, Icons.view_in_ar, 'AR实景', '/ar',
+                    onTap: () => _open3dApp(context, 'ar', '/ar')),
                 _buildFeatureCard(context, Icons.menu_book, '维修手册', '/manuals'),
                 _buildFeatureCard(
                     context, Icons.image_search, '图文检索', '/embed'),
@@ -120,11 +123,27 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  /// 3D/AR 卡片入口：优先拉起独立 3D App（forklift3d:// 深链，拆分方案 §3.4/§4.5），
+  /// 未安装则降级到内置页面。
+  Future<void> _open3dApp(
+      BuildContext context, String mode, String fallbackRoute) async {
+    final uri = Uri.parse('forklift3d://viewer?mode=$mode');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        return;
+      }
+    } catch (_) {
+      // 部分安卓环境 canLaunchUrl 抛异常，按未安装处理走降级
+    }
+    if (context.mounted) context.push(fallbackRoute);
+  }
+
   Widget _buildFeatureCard(
       BuildContext context, IconData icon, String label, String? route,
-      {bool comingSoon = false}) {
+      {bool comingSoon = false, VoidCallback? onTap}) {
     return GestureDetector(
-      onTap: route != null ? () => context.push(route) : null,
+      onTap: onTap ?? (route != null ? () => context.push(route) : null),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,

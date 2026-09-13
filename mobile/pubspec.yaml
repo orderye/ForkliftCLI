@@ -20,6 +20,9 @@ dependencies:
   # 路由
   go_router: ^14.0.0
 
+  # 深链外跳独立 3D App（forklift3d://，拆分方案 §3.4）：优先拉起独立 App，未安装降级内置页
+  url_launcher: ^6.2.0
+
   # UI
   cupertino_icons: ^1.0.6
   cached_network_image: ^3.3.0
